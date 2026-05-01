@@ -25,7 +25,7 @@ from models import (
 )
 from question_answerer import QuestionAnswerer
 from resume import Resume
-from utils import validate_app_config
+from utils import sanitize_filename, validate_app_config
 
 
 load_dotenv(override=True)
@@ -128,13 +128,9 @@ def generate_cover_letter(body: JobContextBody, request: Request):
 
 @app.post("/api/v1/cover-letter/pdf")
 def cover_letter_pdf(body: CoverLetterPdfBody, request: Request):
-    from utils import sanitize_filename
     services = get_services(request)
     company_name = body.job_description.company_name if body.job_description else None
-    pdf_bytes = services.cover_letter_builder.convert_cover_letter_to_pdf(
-        body.cover_letter_text,
-        company_name=company_name,
-    )
+    pdf_bytes = services.cover_letter_builder.convert_cover_letter_to_pdf(body.cover_letter_text)
     if pdf_bytes is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
