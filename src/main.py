@@ -15,17 +15,20 @@ from job_processor import JobProcessor
 from models import (
     AnswerQuestionBody,
     AnswerQuestionResponse,
+    CandidateProfile,
     CoverLetterPdfBody,
     CoverLetterResponse,
     JobDescription,
     JobPostingBody,
     JobContextBody,
+    PersonalSummary,
     TailorResumeBody,
     TailorResumeResponse,
+    UserProfile,
 )
 from question_answerer import QuestionAnswerer
 from resume import Resume
-from utils import sanitize_filename, validate_app_config
+from utils import load_json_model, sanitize_filename, validate_app_config
 
 
 load_dotenv(override=True)
@@ -42,8 +45,6 @@ class ApplicationServices:
 
     def __init__(
         self,
-        eval_limit: int = 10,
-        fit_limit: int = 5,
         config_file: str = os.getenv("APP_CONFIG", "resources/app_config.json"),
         include_feedback: bool = False,
     ):
@@ -51,14 +52,34 @@ class ApplicationServices:
         ai = AIClient()
         self.blob = BlobClient()
 
-        self.resume_builder = Resume(config=self.config, ai=ai, blob=self.blob, fit_limit=fit_limit)
+        # Parse shared data once — passed into each service instead of re-loading per class.
+        candidate = load_json_model(self.config.candidate_json, CandidateProfile, "candidate")
+        user_profile = load_json_model(self.config.personal_json, UserProfile, "personal")
+        personal_summary = load_json_model(self.config.personal_summary, PersonalSummary, "personal_summary")
+
+        self.resume_builder = Resume(
+            config=self.config,
+            ai=ai,
+            blob=self.blob,
+            fit_limit=self.config.fit_limit,
+            candidate=candidate,
+            user_profile=user_profile,
+        )
         self.cover_letter_builder = CoverLetter(
             config=self.config,
             ai=ai,
-            eval_limit=eval_limit,
+            eval_limit=self.config.eval_limit,
             include_feedback=include_feedback,
+            candidate=candidate,
+            user_profile=user_profile,
         )
-        self.question_answerer = QuestionAnswerer(config=self.config, ai=ai)
+        self.question_answerer = QuestionAnswerer(
+            config=self.config,
+            ai=ai,
+            candidate=candidate,
+            user_profile=user_profile,
+            personal_summary=personal_summary,
+        )
         self.job_processor = JobProcessor(ai=ai)
 
     def get_or_parse_job(
@@ -165,8 +186,7 @@ def tailor_resume(body: TailorResumeBody, request: Request):
 def download_resume(blob_name: str, request: Request):
     """Proxies PDF from Blob Storage to the client."""
     try:
-        pdf_bytes = get_services(request).blob.download(blob_name)
-        filename = blob_name.split("-", 5)[-1] if "-" in blob_name else "resume.pdf"
+        pdf_bytes, filename = get_services(request).blob.download(blob_name)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
