@@ -22,10 +22,15 @@ class BlobClient:
             data,
             overwrite=True,
             content_settings=ContentSettings(content_type=content_type),
+            metadata={"original_filename": filename},
         )
         return blob_name
 
-    def download(self, blob_name: str) -> bytes:
-        return self._client.get_blob_client(
+    def download(self, blob_name: str) -> tuple[bytes, str]:
+        """Returns (pdf_bytes, original_filename)."""
+        downloader = self._client.get_blob_client(
             container=self.container, blob=blob_name
-        ).download_blob().readall()
+        ).download_blob()
+        data = downloader.readall()
+        filename = downloader.properties.metadata.get("original_filename", "resume.pdf")
+        return data, filename
