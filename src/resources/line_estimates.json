@@ -4,10 +4,12 @@
   "education_item_line": 2,
   "experience_item_line": 2,
   "project_item_line": 1,
-  "experience_bullet_line": 2,
-  "project_bullet_line": 2,
+  "experience_bullet_line": 1,
+  "project_bullet_line": 1,
   "certificate_item_line": 1,
   "skills_category_line": 1,
+  "chars_per_line": 115,
+  "chars_per_line_bullet": 107,
   "min_page_lines": 53,
   "max_page_lines": 56
 }

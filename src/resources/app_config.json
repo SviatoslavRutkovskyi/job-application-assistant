@@ -1,5 +1,6 @@
 {
   "candidate_json": "me/candidate.json",
+  "personal_json": "me/personal.json",
   "cover_letter_template": "resources/cover_letter_template.txt",
   "resume_template_tex": "resources/resume_template.tex",
   "resume_layout_json": "resources/resume_layout.json",

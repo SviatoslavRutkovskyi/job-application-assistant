@@ -1,16 +1,7 @@
 {
   "profile": "Frontend-focused software engineer with 2+ years of experience in React and TypeScript, specializing in accessible UI systems and design-system architecture. Completed a UX engineering internship building component libraries used across 3 product teams. Led a capstone team project delivering a production-ready web application. Fluent in English and Mandarin.",
-  "personal": {
-    "name": "Stacy Fakename",
-    "location": "Austin, Texas, 99999",
-    "phone": "555-555-0199",
-    "email": "Stacy.Fakename.dev@example.com",
-    "linkedin_url": "https://www.linkedin.com/in/example-profile/",
-    "linkedin_label": "LinkedIn: stacy-fakename"
-  },
   "education": [
     {
-      "id": 1,
       "institution": "University of Texas at Austin",
       "date_range": "Aug 2021 -- May 2025",
       "degree_line": "Bachelor of Science in Computer Science | GPA - 3.82",
@@ -19,7 +10,6 @@
   ],
   "certificates": [
     {
-      "id": 1,
       "name": "Google UX Design Certificate",
       "issuer": "Google",
       "date": "Aug 2024"
@@ -27,145 +17,189 @@
   ],
   "skills": [
     {
-      "id": 1,
       "name": "Programming Languages",
       "skills": [
-        { "id": 1, "text": "TypeScript" },
-        { "id": 2, "text": "JavaScript" },
-        { "id": 3, "text": "Python" },
-        { "id": 4, "text": "HTML/CSS" },
-        { "id": 5, "text": "SQL" }
+        {
+          "text": "TypeScript"
+        },
+        {
+          "text": "JavaScript"
+        },
+        {
+          "text": "Python"
+        },
+        {
+          "text": "HTML/CSS"
+        },
+        {
+          "text": "SQL"
+        }
       ]
     },
     {
-      "id": 2,
       "name": "Technologies & Frameworks",
       "skills": [
-        { "id": 1, "text": "React" },
-        { "id": 2, "text": "Next.js" },
-        { "id": 3, "text": "Tailwind CSS" },
-        { "id": 4, "text": "Storybook" },
-        { "id": 5, "text": "Figma" },
-        { "id": 6, "text": "GraphQL" },
-        { "id": 7, "text": "Jest" }
+        {
+          "text": "React"
+        },
+        {
+          "text": "Next.js"
+        },
+        {
+          "text": "Tailwind CSS"
+        },
+        {
+          "text": "Storybook"
+        },
+        {
+          "text": "Figma"
+        },
+        {
+          "text": "GraphQL"
+        },
+        {
+          "text": "Jest"
+        }
       ]
     },
     {
-      "id": 3,
       "name": "Cloud & Tools",
       "skills": [
-        { "id": 1, "text": "Vercel" },
-        { "id": 2, "text": "GitHub Actions" },
-        { "id": 3, "text": "Chromatic" }
+        {
+          "text": "Vercel"
+        },
+        {
+          "text": "GitHub Actions"
+        },
+        {
+          "text": "Chromatic"
+        }
       ]
     },
     {
-      "id": 4,
       "name": "Databases",
       "skills": [
-        { "id": 1, "text": "PostgreSQL" },
-        { "id": 2, "text": "Supabase" }
+        {
+          "text": "PostgreSQL"
+        },
+        {
+          "text": "Supabase"
+        }
       ]
     },
     {
-      "id": 5,
       "name": "Developer Tools",
       "skills": [
-        { "id": 1, "text": "Git" },
-        { "id": 2, "text": "GitHub" },
-        { "id": 3, "text": "VS Code" },
-        { "id": 4, "text": "Figma" },
-        { "id": 5, "text": "Linear" }
+        {
+          "text": "Git"
+        },
+        {
+          "text": "GitHub"
+        },
+        {
+          "text": "VS Code"
+        },
+        {
+          "text": "Figma"
+        },
+        {
+          "text": "Linear"
+        }
       ]
     },
     {
-      "id": 6,
       "name": "Practices",
       "skills": [
-        { "id": 1, "text": "Component-Driven Development" },
-        { "id": 2, "text": "Accessibility (WCAG 2.1)" },
-        { "id": 3, "text": "Design Systems" },
-        { "id": 4, "text": "Code Review" },
-        { "id": 5, "text": "Agile Development" }
+        {
+          "text": "Component-Driven Development"
+        },
+        {
+          "text": "Accessibility (WCAG 2.1)"
+        },
+        {
+          "text": "Design Systems"
+        },
+        {
+          "text": "Code Review"
+        },
+        {
+          "text": "Agile Development"
+        }
       ]
     }
   ],
   "projects": [
     {
-      "id": 1,
       "name": "Accessible Component Library",
       "date": "Feb 2025",
-      "github_link_names": ["GitHub"],
-      "github_links": ["https://github.com/example/component-library"],
+      "github_link_names": [
+        "GitHub"
+      ],
+      "github_links": [
+        "https://github.com/example/component-library"
+      ],
       "bullet_points": [
         {
-          "id": 1,
           "text": "Built a 24-component React/TypeScript library meeting WCAG 2.1 AA standards, covering forms, modals, navigation, and data display"
         },
         {
-          "id": 2,
           "text": "Implemented full keyboard navigation and screen reader support across all interactive components using ARIA patterns from the W3C APG"
         },
         {
-          "id": 3,
           "text": "Documented all components in Storybook with usage examples, prop tables, and accessibility annotations; deployed via Chromatic for visual regression testing"
         },
         {
-          "id": 4,
           "text": "Wrote 80+ Jest and React Testing Library tests covering rendering, keyboard interaction, and ARIA attribute correctness"
         },
         {
-          "id": 5,
           "text": "Tech Stack: TypeScript, React, Tailwind CSS, Storybook, Chromatic, Jest, React Testing Library"
         }
       ]
     },
     {
-      "id": 2,
       "name": "Campus Event Platform",
       "date": "Dec 2024",
-      "github_link_names": ["GitHub"],
-      "github_links": ["https://github.com/example/campus-events"],
+      "github_link_names": [
+        "GitHub"
+      ],
+      "github_links": [
+        "https://github.com/example/campus-events"
+      ],
       "bullet_points": [
         {
-          "id": 1,
           "text": "Led a team of 4 building a full-stack campus event discovery platform with Next.js, Supabase, and Tailwind CSS"
         },
         {
-          "id": 2,
           "text": "Implemented real-time RSVP tracking and capacity management using Supabase Realtime subscriptions, reflecting changes across all connected clients instantly"
         },
         {
-          "id": 3,
           "text": "Built an organizer dashboard with event creation, attendee management, and CSV export; scoped permissions using Supabase row-level security policies"
         },
         {
-          "id": 4,
           "text": "Designed and implemented a responsive mobile-first layout tested across 6 device breakpoints using Tailwind's responsive utilities"
         },
         {
-          "id": 5,
           "text": "Tech Stack: TypeScript, Next.js, Supabase, Tailwind CSS, Vercel"
         }
       ]
     },
     {
-      "id": 3,
       "name": "Personal Finance Tracker",
       "date": "Aug 2024",
-      "github_link_names": ["GitHub"],
-      "github_links": ["https://github.com/example/finance-tracker"],
+      "github_link_names": [
+        "GitHub"
+      ],
+      "github_links": [
+        "https://github.com/example/finance-tracker"
+      ],
       "bullet_points": [
         {
-          "id": 1,
           "text": "Built a personal finance tracker with transaction categorization, monthly budget targets, and spending trend visualizations using Recharts"
         },
         {
-          "id": 2,
           "text": "Implemented CSV import from 4 major bank formats with automatic category inference based on merchant name pattern matching"
         },
         {
-          "id": 3,
           "text": "Tech Stack: TypeScript, React, PostgreSQL, Recharts, Python"
         }
       ]
@@ -173,7 +207,6 @@
   ],
   "experiences": [
     {
-      "id": 1,
       "company_name": "Meridian Design Co.",
       "job_title": "UX Engineering Intern",
       "start_date": "May 2024",
@@ -181,21 +214,17 @@
       "location": "Austin, TX",
       "bullet_points": [
         {
-          "id": 1,
           "text": "Built and maintained a shared React component library used across 3 product teams, reducing UI inconsistencies and cutting new feature implementation time by an estimated 25%"
         },
         {
-          "id": 2,
           "text": "Audited the main product for WCAG 2.1 AA compliance, identified 34 violations, and resolved 28 within the internship period"
         },
         {
-          "id": 3,
           "text": "Collaborated directly with designers in Figma to translate design tokens into CSS variables, establishing a single source of truth between design and code"
         }
       ]
     },
     {
-      "id": 2,
       "company_name": "UT Austin Libraries",
       "job_title": "Student Web Developer",
       "start_date": "Jan 2023",
@@ -203,17 +232,14 @@
       "location": "Austin, TX",
       "bullet_points": [
         {
-          "id": 1,
           "text": "Maintained and improved public-facing library web properties serving 50,000+ monthly visitors, focusing on accessibility and mobile responsiveness"
         },
         {
-          "id": 2,
           "text": "Migrated 3 legacy jQuery components to modern React equivalents as part of a broader modernization effort"
         }
       ]
     },
     {
-      "id": 3,
       "company_name": "Starbucks",
       "job_title": "Barista",
       "start_date": "Aug 2021",
@@ -221,7 +247,6 @@
       "location": "Austin, TX",
       "bullet_points": [
         {
-          "id": 1,
           "text": "Handled high-volume customer service during peak hours; consistently recognized by store management for efficiency and accuracy"
         }
       ]

@@ -1,23 +1,13 @@
 {
   "profile": "Licensed journeyman plumber with 6 years of experience in residential and commercial plumbing installation, maintenance, and repair. Completed a 4-year apprenticeship through the United Association and holds a Washington State journeyman plumber license. Led crews on new construction projects and managed service calls independently. Known for clean work, code compliance, and reliable communication with customers and general contractors.",
-  "personal": {
-    "name": "Derek Fakename",
-    "location": "Tacoma, Washington, 99999",
-    "phone": "555-555-0199",
-    "email": "derek.fakename@example.com",
-    "linkedin_url": "https://www.linkedin.com/in/example-profile/",
-    "linkedin_label": "LinkedIn: example-profile"
-  },
   "education": [
     {
-      "id": 1,
       "institution": "United Association Local 26 Apprenticeship Program",
       "date_range": "Sep 2018 -- Jun 2022",
       "degree_line": "Journeyman Plumber Apprenticeship | 8,000 hours",
       "location": "Tacoma, WA"
     },
     {
-      "id": 2,
       "institution": "Clover Park Technical College",
       "date_range": "Sep 2016 -- Jun 2018",
       "degree_line": "Certificate of Completion, Plumbing Technology",
@@ -26,19 +16,16 @@
   ],
   "certificates": [
     {
-      "id": 1,
       "name": "Washington State Journeyman Plumber License",
       "issuer": "Washington State Department of Labor and Industries",
       "date": "Jul 2022"
     },
     {
-      "id": 2,
       "name": "OSHA 10 Construction Safety",
       "issuer": "OSHA",
       "date": "Mar 2019"
     },
     {
-      "id": 3,
       "name": "Backflow Prevention Assembly Tester",
       "issuer": "Washington State DOH",
       "date": "Nov 2022"
@@ -46,56 +33,95 @@
   ],
   "skills": [
     {
-      "id": 1,
       "name": "Plumbing Systems",
       "skills": [
-        { "id": 1, "text": "Residential new construction" },
-        { "id": 2, "text": "Commercial tenant improvement" },
-        { "id": 3, "text": "Water supply systems" },
-        { "id": 4, "text": "Drain, waste, and vent systems" },
-        { "id": 5, "text": "Gas line installation and testing" },
-        { "id": 6, "text": "Hydronic heating systems" },
-        { "id": 7, "text": "Backflow prevention" }
+        {
+          "text": "Residential new construction"
+        },
+        {
+          "text": "Commercial tenant improvement"
+        },
+        {
+          "text": "Water supply systems"
+        },
+        {
+          "text": "Drain, waste, and vent systems"
+        },
+        {
+          "text": "Gas line installation and testing"
+        },
+        {
+          "text": "Hydronic heating systems"
+        },
+        {
+          "text": "Backflow prevention"
+        }
       ]
     },
     {
-      "id": 2,
       "name": "Tools & Equipment",
       "skills": [
-        { "id": 1, "text": "Pipe threading machines" },
-        { "id": 2, "text": "Press fitting systems (Viega, Milwaukee)" },
-        { "id": 3, "text": "Power drain cleaning equipment" },
-        { "id": 4, "text": "Pipe inspection cameras" },
-        { "id": 5, "text": "Hydrostatic pressure testing" },
-        { "id": 6, "text": "PEX, copper, CPVC, cast iron, ABS" }
+        {
+          "text": "Pipe threading machines"
+        },
+        {
+          "text": "Press fitting systems (Viega, Milwaukee)"
+        },
+        {
+          "text": "Power drain cleaning equipment"
+        },
+        {
+          "text": "Pipe inspection cameras"
+        },
+        {
+          "text": "Hydrostatic pressure testing"
+        },
+        {
+          "text": "PEX, copper, CPVC, cast iron, ABS"
+        }
       ]
     },
     {
-      "id": 3,
       "name": "Codes & Standards",
       "skills": [
-        { "id": 1, "text": "International Plumbing Code (IPC)" },
-        { "id": 2, "text": "Washington State Plumbing Code" },
-        { "id": 3, "text": "ASME standards" },
-        { "id": 4, "text": "ADA accessibility compliance" }
+        {
+          "text": "International Plumbing Code (IPC)"
+        },
+        {
+          "text": "Washington State Plumbing Code"
+        },
+        {
+          "text": "ASME standards"
+        },
+        {
+          "text": "ADA accessibility compliance"
+        }
       ]
     },
     {
-      "id": 4,
       "name": "Soft Skills",
       "skills": [
-        { "id": 1, "text": "Customer communication" },
-        { "id": 2, "text": "Crew coordination" },
-        { "id": 3, "text": "Blueprint reading" },
-        { "id": 4, "text": "Material takeoffs" },
-        { "id": 5, "text": "Job site safety" }
+        {
+          "text": "Customer communication"
+        },
+        {
+          "text": "Crew coordination"
+        },
+        {
+          "text": "Blueprint reading"
+        },
+        {
+          "text": "Material takeoffs"
+        },
+        {
+          "text": "Job site safety"
+        }
       ]
     }
   ],
   "projects": [],
   "experiences": [
     {
-      "id": 1,
       "company_name": "Pacific Plumbing & Mechanical",
       "job_title": "Journeyman Plumber",
       "start_date": "Aug 2022",
@@ -103,41 +129,32 @@
       "location": "Tacoma, WA",
       "bullet_points": [
         {
-          "id": 1,
           "text": "Handle new construction rough-in and trim-out on residential and light commercial projects, averaging 3–4 active jobs per month"
         },
         {
-          "id": 2,
           "text": "Lead service calls independently, diagnosing and resolving issues including slab leaks, drain blockages, water heater failures, and fixture replacements"
         },
         {
-          "id": 3,
           "text": "Mentored 2 apprentices over the past year, supervising their work and signing off on apprenticeship hour logs"
         },
         {
-          "id": 4,
           "text": "Maintain a 4.9-star customer rating across 60+ reviewed service calls tracked by company dispatch software"
         },
         {
-          "id": 5,
           "text": "Led a 3-person rough-in crew on a 48-unit mixed-use building, completing all water supply, DWV, and gas rough-in on schedule across 6 floors with zero correction notices on 4 inspections"
         },
         {
-          "id": 6,
           "text": "Installed complete commercial kitchen plumbing on a restaurant tenant improvement, working within a 3-week phased shutdown window to minimize closure time"
         },
         {
-          "id": 7,
           "text": "Completed a full copper-to-PEX repipe on a 2,400 sq ft 1960s home solo, restoring full service within 2 days as promised and identifying two additional failing components during the job"
         },
         {
-          "id": 8,
           "text": "Managed material ordering and staging for crew on multi-week projects, reducing downtime from shortages to near zero"
         }
       ]
     },
     {
-      "id": 2,
       "company_name": "Cascade Mechanical Contractors",
       "job_title": "Plumber Apprentice",
       "start_date": "Sep 2018",
@@ -145,21 +162,17 @@
       "location": "Tacoma, WA",
       "bullet_points": [
         {
-          "id": 1,
           "text": "Completed 8,000-hour UA apprenticeship across residential, commercial, and industrial job sites under journeyman and foreman supervision"
         },
         {
-          "id": 2,
           "text": "Progressed from helper tasks to independent rough-in work by year 3; completed final apprenticeship year working unsupervised on service calls"
         },
         {
-          "id": 3,
           "text": "Passed Washington State journeyman plumber licensing exam on first attempt with a score of 89%"
         }
       ]
     },
     {
-      "id": 3,
       "company_name": "Home Depot",
       "job_title": "Plumbing Department Associate",
       "start_date": "Jun 2016",
@@ -167,11 +180,9 @@
       "location": "Lakewood, WA",
       "bullet_points": [
         {
-          "id": 1,
           "text": "Assisted customers with product selection in the plumbing department and completed the Home Depot plumbing product certification program"
         },
         {
-          "id": 2,
           "text": "Managed department inventory and handled special orders for contractors"
         }
       ]
