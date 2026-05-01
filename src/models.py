@@ -262,7 +262,7 @@ class TailorResumeBody(JobContextBody):
 
 class TailorResumeResponse(BaseModel):
     last_resume_json: str
-    pdf_blob_name: str
+    pdf_url: str
 
 
 class AnswerQuestionBody(JobContextBody):
@@ -271,4 +271,3 @@ class AnswerQuestionBody(JobContextBody):
 
 class AnswerQuestionResponse(BaseModel):
     answer: str
-    job_description: JobDescription
