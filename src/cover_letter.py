@@ -5,7 +5,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_client import AIClient
 from models import AppConfig, CandidateProfile, Evaluation, JobDescription, TextResponse, UserProfile
-from utils import load_json_model
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +16,8 @@ class CoverLetter:
         ai: AIClient,
         eval_limit: int,
         include_feedback: bool,
+        candidate: CandidateProfile,
+        user_profile: UserProfile,
     ):
         self.config = config
         self.ai = ai
@@ -26,9 +27,7 @@ class CoverLetter:
         with open(self.config.cover_letter_template, encoding="utf-8") as f:
             self.cover_letter_template = f.read()
 
-        candidate_data = load_json_model(self.config.candidate_json, CandidateProfile, "candidate")
-        user_profile = load_json_model(self.config.personal_json, UserProfile, "personal")
-        candidate_json = candidate_data.model_dump_json(indent=2)
+        candidate_json = candidate.model_dump_json(indent=2)
         name = user_profile.name
 
         self.system_prompt = f"""
@@ -90,7 +89,7 @@ Scoring rules:
             Evaluation,
         )
 
-    def request_letter(self, job_info: JobDescription):
+    def request_letter(self, job_info: JobDescription) -> str:
         logger.info("Requesting cover letter")
         logger.info(f"Job: {job_info.job_title or 'N/A'} at {job_info.company_name or 'N/A'}")
 
