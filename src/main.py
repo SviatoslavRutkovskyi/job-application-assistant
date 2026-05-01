@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from ai_client import AIClient
+from blob_client import BlobClient
 from cover_letter import CoverLetter
 from job_processor import JobProcessor
 from models import (
@@ -36,9 +37,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-OUTPUT_DIR = Path("static") / "output"
-
-
 class ApplicationServices:
     """Wires resume, cover letter, Q&A, and job parsing (no UI)."""
 
@@ -51,8 +49,9 @@ class ApplicationServices:
     ):
         self.config = validate_app_config(config_file)
         ai = AIClient()
+        self.blob = BlobClient()
 
-        self.resume_builder = Resume(config=self.config, ai=ai, fit_limit=fit_limit)
+        self.resume_builder = Resume(config=self.config, ai=ai, blob=self.blob, fit_limit=fit_limit)
         self.cover_letter_builder = CoverLetter(
             config=self.config,
             ai=ai,
@@ -79,7 +78,6 @@ class ApplicationServices:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.services = ApplicationServices()
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     yield
 
 
@@ -130,18 +128,19 @@ def generate_cover_letter(body: JobContextBody, request: Request):
 
 @app.post("/api/v1/cover-letter/pdf")
 def cover_letter_pdf(body: CoverLetterPdfBody, request: Request):
+    from utils import sanitize_filename
     services = get_services(request)
     company_name = body.job_description.company_name if body.job_description else None
-    result = services.cover_letter_builder.convert_cover_letter_to_pdf(
+    pdf_bytes = services.cover_letter_builder.convert_cover_letter_to_pdf(
         body.cover_letter_text,
         company_name=company_name,
     )
-    if result is None:
+    if pdf_bytes is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not generate cover letter PDF.",
         )
-    pdf_bytes, filename = result
+    filename = f"cover_letter_{sanitize_filename(company_name)}.pdf" if company_name else "cover_letter.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -162,27 +161,16 @@ def tailor_resume(body: TailorResumeBody, request: Request):
     blob_name, resume_json = result
     return TailorResumeResponse(
         last_resume_json=resume_json,
-        pdf_blob_name=blob_name,
+        pdf_url=blob_name,
     )
 
 
 @app.get("/api/v1/resume/download/{blob_name:path}")
-def download_resume(blob_name: str):
-    """Proxy download — fetches PDF from Blob Storage and streams to client."""
-    from azure.identity import DefaultAzureCredential
-    from azure.storage.blob import BlobServiceClient
-    import os
-
-    account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
-    credential = DefaultAzureCredential()
-    account_url = f"https://{account_name}.blob.core.windows.net"
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
-    blob_client = blob_service_client.get_blob_client(container="outputs", blob=blob_name)
-
+def download_resume(blob_name: str, request: Request):
+    """Proxies PDF from Blob Storage to the client."""
     try:
-        stream = blob_client.download_blob()
-        pdf_bytes = stream.readall()
-        filename = blob_name[37:] if len(blob_name) > 37 else "resume.pdf"
+        pdf_bytes = get_services(request).blob.download(blob_name)
+        filename = blob_name.split("-", 5)[-1] if "-" in blob_name else "resume.pdf"
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -203,7 +191,7 @@ def answer_question(body: AnswerQuestionBody, request: Request):
     services = get_services(request)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     answer = services.question_answerer.answer_question(job_desc, body.question)
-    return AnswerQuestionResponse(answer=answer, job_description=job_desc)
+    return AnswerQuestionResponse(answer=answer)
 
 
 if __name__ == "__main__":
