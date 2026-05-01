@@ -1,7 +1,6 @@
 import json
 import logging
 import math
-import os
 import re
 from pathlib import Path
 
@@ -49,38 +48,24 @@ def sanitize_filename(name: str) -> str:
     return sanitized.lower().strip("_")
 
 
-def load_candidate_data(candidate_json_path: str | Path) -> CandidateProfile:
-    """Load and validate candidate profile JSON (career content only, no personal info)."""
+def load_json_model[T](file_path: str | Path, model_cls: type[T], label: str) -> T:
+    """Load a JSON file and validate it against a Pydantic model."""
     try:
-        with open(candidate_json_path, encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             data = json.load(f)
-            return CandidateProfile.model_validate(data)
+        return model_cls.model_validate(data)
     except FileNotFoundError:
-        logger.error(f"Candidate JSON file not found at {candidate_json_path}")
+        logger.error(f"{label} file not found at {file_path}")
         raise
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in candidate file: {e}")
+        logger.error(f"Invalid JSON in {label} file: {e}")
         raise
     except Exception as e:
-        logger.error(f"Invalid candidate data structure: {e}")
+        logger.error(f"Invalid {label} data structure: {e}")
         raise
 
 
-def load_user_profile(personal_json_path: str | Path) -> UserProfile:
-    """Load and validate user profile JSON (personal/contact info)."""
-    try:
-        with open(personal_json_path, encoding="utf-8") as f:
-            data = json.load(f)
-            return UserProfile.model_validate(data)
-    except FileNotFoundError:
-        logger.error(f"Personal JSON file not found at {personal_json_path}")
-        raise
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in personal file: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Invalid personal data structure: {e}")
-        raise
+
 
 
 def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> AnnotatedCandidate:
@@ -88,7 +73,8 @@ def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> Annotate
     chars_per_line_bullet = estimates["chars_per_line_bullet"]
 
     def annotate_bullets(bullets) -> list[AnnotatedBullet]:
-        cost = lambda text: math.ceil(len(text) / chars_per_line_bullet)
+        def cost(text: str) -> float:
+            return math.ceil(len(text) / chars_per_line_bullet)
         return [AnnotatedBullet(id=j, text=b.text, line_cost=cost(b.text)) for j, b in enumerate(bullets, start=1)]
 
     return AnnotatedCandidate(
