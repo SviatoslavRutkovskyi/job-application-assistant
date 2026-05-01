@@ -9,7 +9,7 @@ import math
 from ai_client import AIClient
 from latex_generator import LatexGenerator
 from models import AppConfig, ResumeData, JobDescription
-from utils import sanitize_filename, load_candidate_data, save_output_file
+from utils import annotate_candidate, load_candidate_data, load_user_profile, sanitize_filename, save_output_file
 
 logger = logging.getLogger(__name__)
 
@@ -29,19 +29,19 @@ class Resume:
         self.fit_limit = fit_limit
 
         line_path = Path(self.config.line_estimates_json)
-        self._line_estimates_prompt_text = line_path.read_text(encoding="utf-8").strip()
         try:
-            self._line_estimates = json.loads(self._line_estimates_prompt_text)
+            self._line_estimates = json.loads(line_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
             raise ValueError(f"Invalid line estimates JSON at {line_path}: {e}") from e
 
-        self.candidate_data = load_candidate_data(self.config.candidate_json)
+        self.user_profile = load_user_profile(self.config.personal_json)
+        candidate_data = load_candidate_data(self.config.candidate_json)
+        self.annotated_candidate = annotate_candidate(candidate_data, self._line_estimates)
         self.system_prompt = self._build_system_prompt()
 
     def _fit_score(self, lines: float) -> tuple:
         min_l = self._line_estimates['min_page_lines']
         max_l = self._line_estimates['max_page_lines']
-
         if lines > max_l:
             return (2, lines - max_l)
         if lines < min_l:
@@ -60,16 +60,16 @@ class Resume:
         user_message = self._build_user_message(job_info, resume_feedback, last_resume_content)
         elapsed = time.time() - start_time
         logger.info(f"[2/5] Generating tailored resume content... ({elapsed:.1f}s elapsed)")
-        resume_data = self.ai.run(self.system_prompt, user_message, ResumeData, reasoning=True)
+        resume_data = self.ai.run(self.system_prompt, user_message, ResumeData, reasoning=True, reasoning_effort="low")
 
         elapsed = time.time() - start_time
         logger.info(f"[3/5] Verifying resume length... ({elapsed:.1f}s elapsed)")
 
         best_resume_data = resume_data
-        best_score = self._fit_score(self.calculate_resume_lines(resume_data, self._line_estimates))
+        best_score = self._fit_score(self.calculate_resume_lines(resume_data))
 
         for i in range(self.fit_limit):
-            lines_calculated = self.calculate_resume_lines(resume_data, self._line_estimates)
+            lines_calculated = self.calculate_resume_lines(resume_data)
             score = self._fit_score(lines_calculated)
 
             logger.info(
@@ -93,10 +93,11 @@ class Resume:
                 self._build_retry_message(job_info, resume_data.model_dump_json(), lines_calculated),
                 ResumeData,
                 reasoning=True,
+                reasoning_effort="low",
             )
 
         resume_data = best_resume_data
-        final_lines = self.calculate_resume_lines(resume_data, self._line_estimates)
+        final_lines = self.calculate_resume_lines(resume_data)
 
         if self._fit_score(final_lines) != (0, 0):
             if final_lines > self._line_estimates['max_page_lines']:
@@ -112,12 +113,11 @@ class Resume:
         company_name_sanitized = sanitize_filename(job_info.company_name) if job_info.company_name else ""
         filename_base = f"resume_{company_name_sanitized}" if company_name_sanitized else "resume"
 
-        latex_content = self.latex_generator.convert_to_latex(self.candidate_data, resume_data)
+        latex_content = self.latex_generator.convert_to_latex(self.annotated_candidate, self.user_profile, resume_data)
         if latex_content is None:
             logger.error("Failed to create LaTeX from resume data")
             return None
 
-        # Save .tex locally for Tectonic compilation
         output_dir = Path("static/output")
         output_dir.mkdir(parents=True, exist_ok=True)
         tex_path = output_dir / f"{filename_base}.tex"
@@ -138,49 +138,64 @@ class Resume:
             logger.error(f"LaTeX error details: {result.stderr}")
             return None
 
-        # Upload PDF to Blob Storage
         blob_name = save_output_file(f"{filename_base}.pdf", pdf_path.read_bytes(), prefix="resume")
 
         elapsed = time.time() - start_time
         logger.info(f"Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")
         return blob_name, resume_data.model_dump_json()
 
-    def calculate_resume_lines(self, resume_data: ResumeData, estimates: dict) -> float:
-        H = estimates["section_heading_line"]
+    def calculate_resume_lines(self, resume_data: ResumeData) -> float:
+        H = self.annotated_candidate.section_heading_line
+        chars_per_line = self._line_estimates["chars_per_line"]
+        ac = self.annotated_candidate
+
+        edu_costs   = {e.id: e.line_cost for e in ac.education}
+        cert_costs  = {c.id: c.line_cost for c in ac.certificates}
+        skill_costs = {s.id: s.line_cost for s in ac.skills}
+        exp_costs   = {e.id: e.line_cost for e in ac.experiences}
+        proj_costs  = {p.id: p.line_cost for p in ac.projects}
+        exp_bullet_costs  = {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experiences}
+        proj_bullet_costs = {p.id: {b.id: b.line_cost for b in p.bullet_points} for p in ac.projects}
+
+        total = H + math.ceil(len(resume_data.profile) / chars_per_line)
 
         flat_sections = [
-            (resume_data.selected_education_ids,   "education_item_line"),
-            (resume_data.selected_certificate_ids, "certificate_item_line"),
-            (resume_data.selected_skills,          "skills_category_line"),
+            (resume_data.selected_education_ids,                        edu_costs),
+            (resume_data.selected_certificate_ids,                      cert_costs),
+            ([sel.category_id for sel in resume_data.selected_skills],  skill_costs),
         ]
+        for ids, cost_map in flat_sections:
+            if ids:
+                total += H + sum(cost_map.get(i, 0) for i in ids)
 
-        nested_sections = [
-            (resume_data.selected_experiences, "experience_item_line", "experience_bullet_line"),
-            (resume_data.selected_projects,    "project_item_line",    "project_bullet_line"),
-        ]
+        if resume_data.selected_experiences:
+            total += H
+            for se in resume_data.selected_experiences:
+                total += exp_costs.get(se.experience_id, 0)
+                total += sum(exp_bullet_costs.get(se.experience_id, {}).get(bid, 0) for bid in se.bullet_ids)
 
-        total = H
-        CHARS_PER_LINE = 115
-
-        total += math.ceil(len(resume_data.profile) / CHARS_PER_LINE)
-
-        for items, item_key in flat_sections:
-            if items:
-                total += H + len(items) * estimates[item_key]
-
-        for items, item_key, bullet_key in nested_sections:
-            if items:
-                total += H + sum(
-                    estimates[item_key] + len(item.bullet_ids) * estimates[bullet_key]
-                    for item in items
-                )
+        if resume_data.selected_projects:
+            total += H
+            for sp in resume_data.selected_projects:
+                total += proj_costs.get(sp.project_id, 0)
+                total += sum(proj_bullet_costs.get(sp.project_id, {}).get(bid, 0) for bid in sp.bullet_ids)
 
         return total
 
     def _build_system_prompt(self):
-        candidate_json = self.candidate_data.model_dump_json(indent=2)
+        candidate_dict = self.annotated_candidate.model_dump(
+            exclude={"projects": {"__all__": {"github_links", "github_link_names"}}}
+        )
+        candidate_json = json.dumps(candidate_dict, indent=2)
+        name = self.user_profile.name
+        location = self.user_profile.location or ""
+        min_l = self._line_estimates["min_page_lines"]
+        max_l = self._line_estimates["max_page_lines"]
 
         return f"""You are a resume editor. The job posting is in the user message.
+
+Candidate name: {name}
+Location: {location}
 
 Rules:
 - Candidate JSON is the only fact source: employers, titles, schools, dates, tools, metrics, and bullet text must trace to it—no invented credentials or roles.
@@ -191,14 +206,15 @@ Rules:
 {candidate_json}
 
 ## Line budget
-Use the weights below to estimate your output size before finalizing selections. Sum all products.
-Your estimated_resume_lines field must equal your actual calculated total.
-If your total exceeds max_page_lines, remove content until it is less than or equal to max_page_lines.
-If your total is less than min_page_lines, add content until it is greater than or equal to min_page_lines.
+Calculate your total using section_heading_line once per included section:
+- Profile: section_heading_line + profile.line_cost (write to fill approximately profile.line_cost lines)
+- Education, certificates, skills: section_heading_line + sum of selected item line_cost values
+- Experience, projects: section_heading_line + sum of (item.line_cost + sum of selected bullet line_cost values)
 
-If you receive feedback stating your total number of lines, treat it as truth and adjust your output accordingly.
-
-{self._line_estimates_prompt_text}"""
+Your estimated_resume_lines must equal your calculated total.
+Acceptable range: {min_l}–{max_l} lines.
+If your total exceeds {max_l}, remove content. If your total is below {min_l}, add content.
+If you receive feedback stating your actual line count, treat it as truth and adjust accordingly."""
 
     def _build_user_message(self, job_info: JobDescription, resume_feedback, last_resume_content=None):
         parts = [f"## Job posting\n{job_info.model_dump_json(indent=2)}"]
