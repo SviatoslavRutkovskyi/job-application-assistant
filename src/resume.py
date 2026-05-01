@@ -1,4 +1,5 @@
 import json
+import tempfile
 import subprocess
 import time
 import logging
@@ -9,7 +10,8 @@ import math
 from ai_client import AIClient
 from latex_generator import LatexGenerator
 from models import AppConfig, ResumeData, JobDescription
-from utils import annotate_candidate, load_candidate_data, load_user_profile, sanitize_filename, save_output_file
+from blob_client import BlobClient
+from utils import annotate_candidate, load_candidate_data, load_user_profile, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +23,12 @@ class Resume:
         self,
         config: AppConfig,
         ai: AIClient,
+        blob: BlobClient,
         fit_limit: int,
     ):
         self.config = config
         self.ai = ai
+        self.blob = blob
         self.latex_generator = LatexGenerator(config=self.config)
         self.fit_limit = fit_limit
 
@@ -118,27 +122,28 @@ class Resume:
             logger.error("Failed to create LaTeX from resume data")
             return None
 
-        output_dir = Path("static/output")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        tex_path = output_dir / f"{filename_base}.tex"
-        tex_path.write_bytes(latex_content.encode("utf-8"))
-        pdf_path = tex_path.with_suffix(".pdf")
-
         elapsed = time.time() - start_time
         logger.info(f"[5/5] Compiling PDF... ({elapsed:.1f}s elapsed)")
-        result = subprocess.run(
-            ["tectonic", tex_path.name],
-            cwd=tex_path.parent,
-            capture_output=True,
-            text=True,
-        )
 
-        if result.returncode != 0:
-            logger.error(f"LaTeX compilation failed with return code {result.returncode}")
-            logger.error(f"LaTeX error details: {result.stderr}")
-            return None
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            tex_path = tmp_path / f"{filename_base}.tex"
+            tex_path.write_bytes(latex_content.encode("utf-8"))
+            pdf_path = tex_path.with_suffix(".pdf")
 
-        blob_name = save_output_file(f"{filename_base}.pdf", pdf_path.read_bytes(), prefix="resume")
+            result = subprocess.run(
+                ["tectonic", tex_path.name],
+                cwd=tmp_path,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"LaTeX compilation failed with return code {result.returncode}")
+                logger.error(f"LaTeX error details: {result.stderr}")
+                return None
+
+            blob_name = self.blob.upload(f"{filename_base}.pdf", pdf_path.read_bytes())
 
         elapsed = time.time() - start_time
         logger.info(f"Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")
