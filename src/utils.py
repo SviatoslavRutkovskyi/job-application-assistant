@@ -4,10 +4,6 @@ import math
 import os
 import re
 from pathlib import Path
-from uuid import uuid4
-
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient, ContentSettings
 
 from models import (
     AnnotatedProfile,
@@ -25,23 +21,6 @@ from models import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def save_output_file(filename: str, data: bytes, prefix: str) -> str:
-    account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
-    container_name = "outputs"
-    blob_name = f"{uuid4()}-{filename}"
-
-    credential = DefaultAzureCredential()
-    account_url = f"https://{account_name}.blob.core.windows.net"
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-    blob_client.upload_blob(
-        data,
-        overwrite=True,
-        content_settings=ContentSettings(content_type="application/pdf"),
-    )
-    return blob_name
 
 
 def load_app_config(config_file: str) -> AppConfig:
