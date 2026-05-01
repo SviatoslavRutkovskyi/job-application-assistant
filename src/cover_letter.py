@@ -4,8 +4,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_client import AIClient
-from models import AppConfig, Evaluation, JobDescription, TextResponse
-from utils import load_candidate_data, load_user_profile, sanitize_filename
+from models import AppConfig, CandidateProfile, Evaluation, JobDescription, TextResponse, UserProfile
+from utils import load_json_model
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,8 @@ class CoverLetter:
         with open(self.config.cover_letter_template, encoding="utf-8") as f:
             self.cover_letter_template = f.read()
 
-        candidate_data = load_candidate_data(self.config.candidate_json)
-        user_profile = load_user_profile(self.config.personal_json)
+        candidate_data = load_json_model(self.config.candidate_json, CandidateProfile, "candidate")
+        user_profile = load_json_model(self.config.personal_json, UserProfile, "personal")
         candidate_json = candidate_data.model_dump_json(indent=2)
         name = user_profile.name
 
@@ -83,13 +83,10 @@ Scoring rules:
 {candidate_json}
 """
 
-    def evaluator_cover_letter(self, job_info: JobDescription, cover_letter):
-        return f"Job Description:\n{job_info.model_dump_json(indent=2)}\n\nCover Letter:\n{cover_letter}"
-
-    def evaluate(self, job_info: JobDescription, cover_letter) -> Evaluation:
+    def evaluate(self, job_info: JobDescription, cover_letter: str) -> Evaluation:
         return self.ai.run(
             self.evaluator_system_prompt,
-            self.evaluator_cover_letter(job_info, cover_letter),
+            f"Job Description:\n{job_info.model_dump_json(indent=2)}\n\nCover Letter:\n{cover_letter}",
             Evaluation,
         )
 
@@ -97,60 +94,49 @@ Scoring rules:
         logger.info("Requesting cover letter")
         logger.info(f"Job: {job_info.job_title or 'N/A'} at {job_info.company_name or 'N/A'}")
 
-        job_message = "## Job Posting\n" + job_info.model_dump_json(indent=2)
-        cover_letter = self.ai.run(
-            self.system_prompt,
-            job_message
-            + "\n\n## Cover Letter Template (Use as starting point. Replace all bracketed placeholders with actual content from the candidate data and job description)\n"
+        job_section = "## Job Posting\n" + job_info.model_dump_json(indent=2)
+        current_message = "\n\n".join([
+            job_section,
+            "## Cover Letter Template (Use as starting point. Replace all bracketed placeholders with actual content from the candidate data and job description)\n"
             + self.cover_letter_template,
-            TextResponse,
-        ).text
+        ])
 
         max_score = -1
-        best_cover_letter = cover_letter
+        best_cover_letter = None
         best_feedback = ""
-        eval_counter = 0
 
-        while eval_counter < self.eval_limit:
+        for i in range(self.eval_limit):
+            cover_letter = self.ai.run(self.system_prompt, current_message, TextResponse).text
             evaluation = self.evaluate(job_info, cover_letter)
-            if evaluation.is_acceptable:
-                logger.info("Passed evaluation - returning reply")
-                logger.info(f"## Score:{evaluation.score}")
-                logger.info(f"## Cover Letter:\n{cover_letter}")
-                logger.info(f"## Feedback:\n{evaluation.feedback}")
-                if self.include_feedback:
-                    return cover_letter + "\n\n\n" + evaluation.feedback
-                return cover_letter
-            else:
-                logger.info("Failed evaluation - retrying")
-                logger.info(f"## Score:{evaluation.score}")
-                logger.info(f"## Cover Letter:\n{cover_letter}")
-                logger.info(f"## Feedback:\n{evaluation.feedback}")
+
+            logger.info(f"[attempt {i + 1}/{self.eval_limit}] score: {evaluation.score} — {'passed' if evaluation.is_acceptable else 'retrying'}")
+            logger.info(f"    cover letter: {cover_letter}")
+            logger.info(f"    feedback: {evaluation.feedback}")
 
             if evaluation.score > max_score:
                 max_score = evaluation.score
                 best_cover_letter = cover_letter
                 best_feedback = evaluation.feedback
 
-            eval_counter += 1
+            if evaluation.is_acceptable:
+                if self.include_feedback:
+                    return cover_letter + "\n\n\n" + evaluation.feedback
+                return cover_letter
 
-            cover_letter = self.ai.run(
-                self.system_prompt,
-                job_message
-                + "\n\n## Previous Attempt (rejected)\n" + cover_letter
-                + "\n\n## Feedback\n" + evaluation.feedback,
-                TextResponse,
-            ).text
+            current_message = "\n\n".join([
+                job_section,
+                "## Previous Attempt (rejected)\n" + cover_letter,
+                "## Feedback\n" + evaluation.feedback,
+            ])
 
+        logger.warning(f"Eval limit reached — returning best attempt (score: {max_score})")
+        logger.warning(f"    feedback: {best_feedback}")
         return best_cover_letter
 
-    def convert_cover_letter_to_pdf(self, cover_letter_text: str, *, company_name: str | None = None):
+    def convert_cover_letter_to_pdf(self, cover_letter_text: str):
         if not cover_letter_text or not cover_letter_text.strip():
             logger.warning("No cover letter text provided for PDF conversion")
             return None
-
-        company_name_sanitized = sanitize_filename(company_name) if company_name else ""
-        filename_base = f"cover_letter_{company_name_sanitized}" if company_name_sanitized else "cover_letter"
 
         try:
             buffer = BytesIO()
@@ -168,15 +154,12 @@ Scoring rules:
 
             story = []
             for para in cover_letter_text.split("\n\n"):
-                if para.strip():
-                    lines = para.split("\n")
-                    if len(lines) == 1:
-                        story.append(Paragraph(para.strip(), normal_style))
-                    else:
-                        for line in lines:
-                            if line.strip():
-                                story.append(Paragraph(line.strip(), normal_style))
-                    story.append(Spacer(1, 12))
+                if not para.strip():
+                    continue
+                for line in para.split("\n"):
+                    if line.strip():
+                        story.append(Paragraph(line.strip(), normal_style))
+                story.append(Spacer(1, 12))
 
             doc.build(story)
             logger.info("Cover letter PDF created")
