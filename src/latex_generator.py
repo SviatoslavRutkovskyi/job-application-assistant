@@ -75,23 +75,24 @@ class LatexGenerator:
         with open(layout_path, encoding="utf-8") as f:
             self.layout = ResumeLayoutConfig.model_validate(json.load(f))
 
+    # Single-pass LaTeX escaping — compiled once at class definition.
+    # Sequential str.replace would re-escape braces inside \textbackslash{}.
+    _REPLACEMENTS = {
+        "\\": "\\textbackslash{}",
+        "&":  "\\&",
+        "%":  "\\%",
+        "$":  "\\$",
+        "#":  "\\#",
+        "^":  "\\textasciicircum{}",
+        "_":  "\\_",
+        "{":  "\\{",
+        "}":  "\\}",
+        "~":  "\\textasciitilde{}",
+    }
+    _ESCAPE_PATTERN = re.compile("|".join(re.escape(k) for k in _REPLACEMENTS))
+
     def _e(self, text: str) -> str:
-        # Single-pass replacement — sequential str.replace would re-escape
-        # the braces inside \textbackslash{} when processing { and } afterward.
-        _REPLACEMENTS = {
-            "\\": "\\textbackslash{}",
-            "&":  "\\&",
-            "%":  "\\%",
-            "$":  "\\$",
-            "#":  "\\#",
-            "^":  "\\textasciicircum{}",
-            "_":  "\\_",
-            "{":  "\\{",
-            "}":  "\\}",
-            "~":  "\\textasciitilde{}",
-        }
-        _PATTERN = re.compile("|".join(re.escape(k) for k in _REPLACEMENTS))
-        return _PATTERN.sub(lambda m: _REPLACEMENTS[m.group()], text)
+        return self._ESCAPE_PATTERN.sub(lambda m: self._REPLACEMENTS[m.group()], text)
 
     def _github_link_tex(self, link: str, label: str) -> str:
         return r"\href{" + link + r"}{\large{\underline{" + self._e(label) + r"}}}"
@@ -278,7 +279,7 @@ class LatexGenerator:
             lines.append(r"      \resumeItemListStart")
             for bullet in bullets:
                 lines.append(r"        \ResumeBulletItem{" + self._e(bullet) + "}")
-            lines.append(r"      \resumeItemListEnd  ")
+            lines.append(r"      \resumeItemListEnd")
 
         lines.append(r"\resumeSubHeadingListEnd")
         return "\n".join(lines) + "\n"
