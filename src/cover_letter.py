@@ -5,7 +5,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_client import AIClient
 from models import AppConfig, Evaluation, JobDescription, TextResponse
-from utils import load_candidate_data, load_user_profile, sanitize_filename, save_output_file
+from utils import load_candidate_data, load_user_profile, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -179,9 +179,8 @@ Scoring rules:
                     story.append(Spacer(1, 12))
 
             doc.build(story)
-            pdf_path = save_output_file(f"{filename_base}.pdf", buffer.getvalue(), prefix="cover_letter")
-            logger.info(f"Cover letter PDF created: {pdf_path}")
-            return str(pdf_path)
+            logger.info("Cover letter PDF created")
+            return buffer.getvalue()
 
         except Exception as e:
             logger.error(f"Error creating cover letter PDF: {e}")
