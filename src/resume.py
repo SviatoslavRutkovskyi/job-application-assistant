@@ -11,7 +11,7 @@ from ai_client import AIClient
 from latex_generator import LatexGenerator
 from models import AppConfig, CandidateProfile, JobDescription, ResumeData, UserProfile
 from blob_client import BlobClient
-from utils import annotate_candidate, load_json_model, sanitize_filename
+from utils import annotate_candidate, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,8 @@ class Resume:
         ai: AIClient,
         blob: BlobClient,
         fit_limit: int,
+        candidate: CandidateProfile,
+        user_profile: UserProfile,
     ):
         self.config = config
         self.ai = ai
@@ -38,9 +40,8 @@ class Resume:
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
             raise ValueError(f"Invalid line estimates JSON at {line_path}: {e}") from e
 
-        self.user_profile = load_json_model(self.config.personal_json, UserProfile, "personal")
-        candidate_data = load_json_model(self.config.candidate_json, CandidateProfile, "candidate")
-        self.annotated_candidate = annotate_candidate(candidate_data, self._line_estimates)
+        self.user_profile = user_profile
+        self.annotated_candidate = annotate_candidate(candidate, self._line_estimates)
 
         # Cache lookup dicts — annotated_candidate never mutates after init
         ac = self.annotated_candidate
@@ -72,44 +73,36 @@ class Resume:
         if last_resume_content:
             logger.info("    Using last resume as base for tailoring")
 
+        message = self._build_user_message(job_info, resume_feedback, last_resume_content)
 
-        initial_message = self._build_user_message(job_info, resume_feedback, last_resume_content)
-        resume_data = self.ai.run(self.system_prompt, initial_message, ResumeData, reasoning=True, reasoning_effort="low")
-        lines_calculated = self.calculate_resume_lines(resume_data)
-        score = self._fit_score(lines_calculated)
+        best_score = (2, float("inf"))
+        best_resume_data = None
 
-        elapsed = time.time() - start_time
-        logger.info(f"[2/5] Verifying resume length... ({elapsed:.1f}s elapsed)")
-        logger.info(
-            f"Attempt: [1/{self.fit_limit + 1}]: {lines_calculated} lines "
-            f"(model estimated: {resume_data.estimated_resume_lines}, "
-            f"range: {self._line_estimates['min_page_lines']}–{self._line_estimates['max_page_lines']})"
-        )
+        for i in range(self.fit_limit + 1):
+            if i > 0:
+                elapsed = time.time() - start_time
+                logger.info(f"[2/5] Adjusting resume length — attempt {i + 1}/{self.fit_limit + 1} ({elapsed:.1f}s elapsed)")
 
-        best_score = score
-        best_resume_data = resume_data
-
-        for i in range(self.fit_limit):
-            if score == (0, 0):
-                break
-            
-            elapsed = time.time() - start_time
-            logger.info(f"[2/5] Adjusting resume length... ({elapsed:.1f}s elapsed)")
-
-            retry_message = self._build_retry_message(job_info, resume_data.model_dump_json(), lines_calculated)
-            resume_data = self.ai.run(self.system_prompt, retry_message, ResumeData, reasoning=True, reasoning_effort="low")
+            resume_data = self.ai.run(self.system_prompt, message, ResumeData, reasoning=True, reasoning_effort="low")
             lines_calculated = self.calculate_resume_lines(resume_data)
             score = self._fit_score(lines_calculated)
-            
+
+            elapsed = time.time() - start_time
             logger.info(
-                f"Attempt: [{i + 2}/{self.fit_limit + 1}]: {lines_calculated} lines "
+                f"    Attempt [{i + 1}/{self.fit_limit + 1}]: {lines_calculated} lines "
                 f"(model estimated: {resume_data.estimated_resume_lines}, "
-                f"range: {self._line_estimates['min_page_lines']}–{self._line_estimates['max_page_lines']})"
+                f"range: {self._line_estimates['min_page_lines']}–{self._line_estimates['max_page_lines']}) "
+                f"({elapsed:.1f}s elapsed)"
             )
 
             if score < best_score:
                 best_score = score
                 best_resume_data = resume_data
+
+            if score == (0, 0):
+                break
+
+            message = self._build_retry_message(job_info, resume_data.model_dump_json(), lines_calculated)
 
         resume_data = best_resume_data
         final_lines = self.calculate_resume_lines(resume_data)
