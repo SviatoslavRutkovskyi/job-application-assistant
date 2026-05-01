@@ -67,7 +67,7 @@ class Resume:
         start_time = time.time()
         run_id = uuid4()
         logger.info(f"[tailor_resume called] run_id={run_id}")
-        logger.info(f"[1/4] Generating tailored resume content...")
+        logger.info(f"[1/5] Generating tailored resume content...")
 
         if last_resume_content:
             logger.info("    Using last resume as base for tailoring")
@@ -79,9 +79,9 @@ class Resume:
         score = self._fit_score(lines_calculated)
 
         elapsed = time.time() - start_time
-        logger.info(f"[2/4] Verifying resume length... ({elapsed:.1f}s elapsed)")
+        logger.info(f"[2/5] Verifying resume length... ({elapsed:.1f}s elapsed)")
         logger.info(
-            f"    [attempt 1/{self.fit_limit + 1}]: {lines_calculated} lines "
+            f"Attempt: [1/{self.fit_limit + 1}]: {lines_calculated} lines "
             f"(model estimated: {resume_data.estimated_resume_lines}, "
             f"range: {self._line_estimates['min_page_lines']}–{self._line_estimates['max_page_lines']})"
         )
@@ -92,16 +92,17 @@ class Resume:
         for i in range(self.fit_limit):
             if score == (0, 0):
                 break
-
+            
             elapsed = time.time() - start_time
-            logger.info(f"[2/4] Adjusting resume length... ({elapsed:.1f}s elapsed)")
+            logger.info(f"[2/5] Adjusting resume length... ({elapsed:.1f}s elapsed)")
+
             retry_message = self._build_retry_message(job_info, resume_data.model_dump_json(), lines_calculated)
             resume_data = self.ai.run(self.system_prompt, retry_message, ResumeData, reasoning=True, reasoning_effort="low")
             lines_calculated = self.calculate_resume_lines(resume_data)
             score = self._fit_score(lines_calculated)
-
+            
             logger.info(
-                f"    [attempt {i + 2}/{self.fit_limit + 1}]: {lines_calculated} lines "
+                f"Attempt: [{i + 2}/{self.fit_limit + 1}]: {lines_calculated} lines "
                 f"(model estimated: {resume_data.estimated_resume_lines}, "
                 f"range: {self._line_estimates['min_page_lines']}–{self._line_estimates['max_page_lines']})"
             )
@@ -122,7 +123,7 @@ class Resume:
                 )
 
         elapsed = time.time() - start_time
-        logger.info(f"[3/4] Converting to LaTeX... ({elapsed:.1f}s elapsed)")
+        logger.info(f"[3/5] Converting to LaTeX... ({elapsed:.1f}s elapsed)")
 
         company_name_sanitized = sanitize_filename(job_info.company_name or "")
         filename_base = f"resume_{company_name_sanitized}" if company_name_sanitized else "resume"
@@ -133,7 +134,7 @@ class Resume:
             return None
 
         elapsed = time.time() - start_time
-        logger.info(f"[4/4] Compiling PDF... ({elapsed:.1f}s elapsed)")
+        logger.info(f"[4/5] Compiling PDF... ({elapsed:.1f}s elapsed)")
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -156,7 +157,7 @@ class Resume:
             blob_name = self.blob.upload(f"{filename_base}.pdf", pdf_path.read_bytes())
 
         elapsed = time.time() - start_time
-        logger.info(f"Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")
+        logger.info(f"[5/5] Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")
         return blob_name, resume_data.model_dump_json()
 
     def calculate_resume_lines(self, resume_data: ResumeData) -> float:
