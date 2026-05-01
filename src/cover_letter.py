@@ -5,7 +5,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from ai_client import AIClient
 from models import AppConfig, Evaluation, JobDescription, TextResponse
-from utils import sanitize_filename, load_candidate_data, save_output_file
+from utils import load_candidate_data, load_user_profile, sanitize_filename, save_output_file
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +27,14 @@ class CoverLetter:
             self.cover_letter_template = f.read()
 
         candidate_data = load_candidate_data(self.config.candidate_json)
+        user_profile = load_user_profile(self.config.personal_json)
         candidate_json = candidate_data.model_dump_json(indent=2)
+        name = user_profile.name
 
         self.system_prompt = f"""
-You are a professional cover letter writer writing on behalf of {candidate_data.personal.name}.
+You are a professional cover letter writer writing on behalf of {name}.
 
-You are given {candidate_data.personal.name}'s resume data and a job description.
+You are given {name}'s resume data and a job description.
 
 - Select the most relevant projects and experiences for this specific role
 - Use only information from the candidate data — do not fabricate metrics, percentages, or figures not present in the data
@@ -82,8 +84,7 @@ Scoring rules:
 """
 
     def evaluator_cover_letter(self, job_info: JobDescription, cover_letter):
-        formatted_job_info = job_info.model_dump_json(indent=2)
-        return f"Job Description:\n{formatted_job_info}\n\nCover Letter:\n{cover_letter}"
+        return f"Job Description:\n{job_info.model_dump_json(indent=2)}\n\nCover Letter:\n{cover_letter}"
 
     def evaluate(self, job_info: JobDescription, cover_letter) -> Evaluation:
         return self.ai.run(
@@ -120,7 +121,6 @@ Scoring rules:
                 if self.include_feedback:
                     return cover_letter + "\n\n\n" + evaluation.feedback
                 return cover_letter
-
             else:
                 logger.info("Failed evaluation - retrying")
                 logger.info(f"## Score:{evaluation.score}")

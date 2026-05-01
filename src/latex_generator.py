@@ -1,4 +1,4 @@
-"""Build resume .tex from CandidateProfile + ResumeData and a LaTeX preamble template."""
+"""Build resume .tex from AnnotatedCandidate + UserProfile + ResumeData and a LaTeX preamble template."""
 
 from __future__ import annotations
 
@@ -7,14 +7,15 @@ import logging
 from pathlib import Path
 
 from models import (
+    AnnotatedCandidate,
+    AnnotatedCertificateEntry,
+    AnnotatedEducationEntry,
+    AnnotatedExperience,
+    AnnotatedProject,
     AppConfig,
-    CandidateProfile,
-    CertificateEntry,
-    EducationEntry,
-    Experience,
-    Project,
     ResumeData,
     ResumeLayoutConfig,
+    UserProfile,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,6 @@ def _resolve_text(items: list, selected_ids: list[int]) -> list[str]:
     return [by_id[i] for i in selected_ids if i in by_id]
 
 
-
 class LatexGenerator:
     def __init__(self, config: AppConfig):
         self.config = config
@@ -75,7 +75,6 @@ class LatexGenerator:
             self.layout = ResumeLayoutConfig.model_validate(json.load(f))
 
     def _e(self, text: str) -> str:
-        # Escape plain text from JSON so LaTeX special chars are literal.
         replacements = {
             "&": "\\&",
             "%": "\\%",
@@ -94,7 +93,7 @@ class LatexGenerator:
     def _github_link_tex(self, link: str, label: str) -> str:
         return r"\href{" + link + r"}{\large{\underline{" + self._e(label) + r"}}}"
 
-    def convert_to_latex(self, corpus: CandidateProfile, resume_data: ResumeData) -> str | None:
+    def convert_to_latex(self, corpus: AnnotatedCandidate, personal: UserProfile, resume_data: ResumeData) -> str | None:
         template_path = Path(self.config.resume_template_tex)
         try:
             tex = template_path.read_text(encoding="utf-8")
@@ -102,19 +101,19 @@ class LatexGenerator:
             logger.error(f"Error reading resume template {template_path}: {e}")
             return None
 
-        body = self._build_body(corpus, resume_data)
+        body = self._build_body(corpus, personal, resume_data)
         try:
             return _replace_marked_block(tex, "body", body, path=template_path)
         except ValueError as e:
             logger.error(f"Error creating LaTeX content: {e}")
             return None
 
-    def _build_body(self, corpus: CandidateProfile, data: ResumeData) -> str:
-        parts: list[str] = [self._render_header(corpus), self._render_ordered_sections(corpus, data)]
+    def _build_body(self, corpus: AnnotatedCandidate, personal: UserProfile, data: ResumeData) -> str:
+        parts: list[str] = [self._render_header(personal), self._render_ordered_sections(corpus, data)]
         return "\n".join(p for p in parts if p)
 
-    def _render_header(self, corpus: CandidateProfile) -> str:
-        p = corpus.personal
+    def _render_header(self, personal: UserProfile) -> str:
+        p = personal
         lines: list[str] = [r"\begin{center}", r"    {\Huge \scshape " + self._e(p.name) + r"} \\ \vspace{1pt}"]
 
         if p.location:
@@ -150,7 +149,7 @@ class LatexGenerator:
         lines.extend([r"    \vspace{-8pt}", r"\end{center}", ""])
         return "\n".join(lines)
 
-    def _render_ordered_sections(self, corpus: CandidateProfile, data: ResumeData) -> str:
+    def _render_ordered_sections(self, corpus: AnnotatedCandidate, data: ResumeData) -> str:
         chunks: list[str] = []
 
         for section in self.layout.section_order:
@@ -185,6 +184,7 @@ class LatexGenerator:
                 certs = _resolve(corpus.certificates, data.selected_certificate_ids)
                 if certs:
                     chunks.append(self._render_certificate_section(certs))
+
         return "\n".join(chunks)
 
     def _render_profile(self, profile: str) -> str:
@@ -194,7 +194,7 @@ class LatexGenerator:
             f"      {{{self._e(profile)}}}\n"
         )
 
-    def _render_education(self, entries: list[EducationEntry]) -> str:
+    def _render_education(self, entries: list[AnnotatedEducationEntry]) -> str:
         lines = [
             "%-----------EDUCATION-----------",
             r"\section{EDUCATION}",
@@ -203,19 +203,15 @@ class LatexGenerator:
         for edu in entries:
             lines.append(
                 r"    \ResumeEducationEntry{"
-                + self._e(edu.institution)
-                + "}{"
-                + self._e(edu.date_range)
-                + "}{"
-                + self._e(edu.degree_line)
-                + "}{"
-                + self._e(edu.location)
-                + "}"
+                + self._e(edu.institution) + "}{"
+                + self._e(edu.date_range) + "}{"
+                + self._e(edu.degree_line) + "}{"
+                + self._e(edu.location) + "}"
             )
         lines.append(r"\resumeSubHeadingListEnd")
         return "\n".join(lines) + "\n"
 
-    def _render_project_blocks(self, blocks: list[tuple[Project, list[str]]]) -> str:
+    def _render_project_blocks(self, blocks: list[tuple[AnnotatedProject, list[str]]]) -> str:
         lines = [
             "%-----------PROJECTS-----------",
             r"\section{PROJECTS}",
@@ -234,11 +230,8 @@ class LatexGenerator:
             title = r"\textbf{\large{" + self._e(project.name) + "}}"
             lines.append(
                 r"      \ResumeProjectHeadingRow{"
-                + title
-                + github_suffix
-                + "}{"
-                + project.date
-                + "}"
+                + title + github_suffix + "}{"
+                + project.date + "}"
             )
             lines.append(r"          \resumeItemListStart")
             for bullet in bullets:
@@ -249,7 +242,6 @@ class LatexGenerator:
         return "\n".join(lines) + "\n"
 
     def _render_skill_section(self, rows: list[tuple[str, list[str]]]) -> str:
-        # \small{\item{ ... }} must stay balanced in one place (not split across \newenvironment).
         lines = [
             "%-----------PROGRAMMING SKILLS-----------",
             r"\section{TECHNICAL SKILLS}",
@@ -260,20 +252,13 @@ class LatexGenerator:
             skills_list = ", ".join(self._e(s) for s in skills)
             lines.append(
                 r"\ResumeSkillCategoryRow{"
-                + self._e(cat_name)
-                + "}{"
-                + skills_list
-                + "}"
+                + self._e(cat_name) + "}{"
+                + skills_list + "}"
             )
-        lines.extend(
-            [
-                r"    }}",
-                r" \end{itemize}",
-            ]
-        )
+        lines.extend([r"    }}", r" \end{itemize}"])
         return "\n".join(lines) + "\n"
 
-    def _render_experience_blocks(self, blocks: list[tuple[Experience, list[str]]]) -> str:
+    def _render_experience_blocks(self, blocks: list[tuple[AnnotatedExperience, list[str]]]) -> str:
         lines = [
             "%-----------EXPERIENCE-----------",
             r"\section{EXPERIENCE}",
@@ -282,16 +267,10 @@ class LatexGenerator:
         for exp, bullets in blocks:
             lines.append(
                 r"    \ResumeJobHeading{"
-                + self._e(exp.company_name)
-                + "}{"
-                + exp.start_date
-                + " -- "
-                + exp.end_date
-                + "}{"
-                + self._e(exp.job_title)
-                + "}{"
-                + self._e(exp.location)
-                + "}"
+                + self._e(exp.company_name) + "}{"
+                + exp.start_date + " -- " + exp.end_date + "}{"
+                + self._e(exp.job_title) + "}{"
+                + self._e(exp.location) + "}"
             )
             lines.append(r"      \resumeItemListStart")
             for bullet in bullets:
@@ -301,7 +280,7 @@ class LatexGenerator:
         lines.append(r"\resumeSubHeadingListEnd")
         return "\n".join(lines) + "\n"
 
-    def _render_certificate_section(self, certificates: list[CertificateEntry]) -> str:
+    def _render_certificate_section(self, certificates: list[AnnotatedCertificateEntry]) -> str:
         lines = [
             "%-----------CERTIFICATIONS-----------",
             r"\section{CERTIFICATIONS}",
@@ -318,10 +297,8 @@ class LatexGenerator:
             mid = ", ".join(sub)
             lines.append(
                 r"    \ResumeCertRow{"
-                + self._e(c.name)
-                + "}{"
-                + (mid if mid else "")
-                + "}"
+                + self._e(c.name) + "}{"
+                + (mid if mid else "") + "}"
             )
         lines.extend([r"\resumeSubHeadingListEnd", ""])
         return "\n".join(lines)

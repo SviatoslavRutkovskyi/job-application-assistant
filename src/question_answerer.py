@@ -1,8 +1,8 @@
 import json
 
 from ai_client import AIClient
-from models import AppConfig, CandidateProfile, JobDescription, TextResponse
-from utils import load_candidate_data
+from models import AppConfig, JobDescription, TextResponse
+from utils import load_candidate_data, load_user_profile
 
 
 class QuestionAnswerer:
@@ -18,21 +18,21 @@ class QuestionAnswerer:
 
         with open(self.config.personal_summary, encoding="utf-8") as f:
             summary = json.dumps(json.load(f), indent=2, ensure_ascii=False)
+
         candidate_data = load_candidate_data(self.config.candidate_json)
-        self.system_prompt = self._build_system_prompt(summary, candidate_data)
+        user_profile = load_user_profile(self.config.personal_json)
+        self.system_prompt = self._build_system_prompt(summary, candidate_data.model_dump_json(indent=2), user_profile.name)
 
     def answer_question(self, job_info: JobDescription, question: str) -> str:
-        user_message = self._build_user_message(job_info, question)
-        return self.ai.run(self.system_prompt, user_message, TextResponse).text
+        return self.ai.run(self.system_prompt, self._build_user_message(job_info, question), TextResponse).text
 
-    def _build_system_prompt(self, summary: str, candidate_data: CandidateProfile):
-        candidate_json = candidate_data.model_dump_json(indent=2)
-        return f"""You are answering open-ended job application questions on behalf of {candidate_data.personal.name}. Answers will be submitted directly — write in first person.
+    def _build_system_prompt(self, summary: str, candidate_json: str, name: str) -> str:
+        return f"""You are answering open-ended job application questions on behalf of {name}. Answers will be submitted directly — write in first person.
 
 Rules:
 - Do not fabricate. Only use facts from the candidate data and personal context.
 - If the data doesn't support a full answer, say what you can honestly — do not fill gaps with generic statements.
-- If the question relates to the job description, connect {candidate_data.personal.name}'s actual experience to what the role asks for.
+- If the question relates to the job description, connect {name}'s actual experience to what the role asks for.
 - Write 1-3 sentences. Be direct and human — no filler, no corporate tone, no restating the question.
 
 Respond with the answer text only.
@@ -44,10 +44,5 @@ Respond with the answer text only.
 {summary}
 """
 
-    def _build_user_message(self, job_info: JobDescription, question: str):
-        formatted_job_info = job_info.model_dump_json(indent=2)
-        return f"""Job Posting Information:
-{formatted_job_info}
-
-Question to answer:
-{question}"""
+    def _build_user_message(self, job_info: JobDescription, question: str) -> str:
+        return f"Job Posting Information:\n{job_info.model_dump_json(indent=2)}\n\nQuestion to answer:\n{question}"
