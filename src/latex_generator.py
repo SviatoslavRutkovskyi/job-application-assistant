@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import logging
 from pathlib import Path
 
@@ -75,20 +76,22 @@ class LatexGenerator:
             self.layout = ResumeLayoutConfig.model_validate(json.load(f))
 
     def _e(self, text: str) -> str:
-        replacements = {
-            "&": "\\&",
-            "%": "\\%",
-            "$": "\\$",
-            "#": "\\#",
-            "^": "\\textasciicircum{}",
-            "_": "\\_",
-            "{": "\\{",
-            "}": "\\}",
-            "~": "\\textasciitilde{}",
+        # Single-pass replacement — sequential str.replace would re-escape
+        # the braces inside \textbackslash{} when processing { and } afterward.
+        _REPLACEMENTS = {
+            "\\": "\\textbackslash{}",
+            "&":  "\\&",
+            "%":  "\\%",
+            "$":  "\\$",
+            "#":  "\\#",
+            "^":  "\\textasciicircum{}",
+            "_":  "\\_",
+            "{":  "\\{",
+            "}":  "\\}",
+            "~":  "\\textasciitilde{}",
         }
-        for char, replacement in replacements.items():
-            text = text.replace(char, replacement)
-        return text
+        _PATTERN = re.compile("|".join(re.escape(k) for k in _REPLACEMENTS))
+        return _PATTERN.sub(lambda m: _REPLACEMENTS[m.group()], text)
 
     def _github_link_tex(self, link: str, label: str) -> str:
         return r"\href{" + link + r"}{\large{\underline{" + self._e(label) + r"}}}"
