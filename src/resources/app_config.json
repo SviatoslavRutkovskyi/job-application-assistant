@@ -5,5 +5,7 @@
   "resume_template_tex": "resources/resume_template.tex",
   "resume_layout_json": "resources/resume_layout.json",
   "line_estimates_json": "resources/line_estimates.json",
-  "personal_summary": "me/personal_summary.json"
+  "personal_summary": "me/personal_summary.json",
+  "eval_limit": 5,
+  "fit_limit": 3
 }

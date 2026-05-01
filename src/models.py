@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal, Optional
 from pathlib import Path
 
@@ -13,6 +13,14 @@ class UserProfile(BaseModel):
     email: Optional[str] = None
     linkedin_url: Optional[str] = None
     linkedin_label: Optional[str] = None
+
+
+# --- Personal summary (narrative context for Q&A, not sent to resume/cover letter model) ---
+
+class PersonalSummary(BaseModel):
+    """Free-form narrative fields for answering open-ended application questions.
+    Extra fields are allowed so the schema works across different candidate profiles."""
+    model_config = ConfigDict(extra="allow")
 
 
 # --- Candidate career content (source JSON, no ids or line costs) ---
@@ -222,6 +230,16 @@ class AppConfig(BaseModel):
     resume_layout_json: Path
     line_estimates_json: Path
     personal_summary: Path
+    eval_limit: int = 5
+    fit_limit: int = 3
+
+    @model_validator(mode="after")
+    def check_limits(self) -> "AppConfig":
+        if self.eval_limit < 1:
+            raise ValueError("eval_limit must be >= 1")
+        if self.fit_limit < 0:
+            raise ValueError("fit_limit must be >= 0")
+        return self
 
 
 # --- API models ---
