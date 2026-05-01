@@ -28,6 +28,7 @@ from models import (
 )
 from question_answerer import QuestionAnswerer
 from resume import Resume
+from user_data_client import UserDataClient
 from utils import load_json_model, sanitize_filename, validate_app_config
 
 
@@ -41,7 +42,9 @@ logger = logging.getLogger(__name__)
 
 
 class ApplicationServices:
-    """Wires resume, cover letter, Q&A, and job parsing (no UI)."""
+    """Wires resume, cover letter, Q&A, and job parsing (no UI).
+    Stateless with respect to user data — candidate/profile are passed per request.
+    """
 
     def __init__(
         self,
@@ -51,35 +54,21 @@ class ApplicationServices:
         self.config = validate_app_config(config_file)
         ai = AIClient()
         self.blob = BlobClient()
-
-        # Parse shared data once — passed into each service instead of re-loading per class.
-        candidate = load_json_model(self.config.candidate_json, CandidateProfile, "candidate")
-        user_profile = load_json_model(self.config.personal_json, UserProfile, "personal")
-        personal_summary = load_json_model(self.config.personal_summary, PersonalSummary, "personal_summary")
+        self.user_data = UserDataClient()
 
         self.resume_builder = Resume(
             config=self.config,
             ai=ai,
             blob=self.blob,
             fit_limit=self.config.fit_limit,
-            candidate=candidate,
-            user_profile=user_profile,
         )
         self.cover_letter_builder = CoverLetter(
             config=self.config,
             ai=ai,
             eval_limit=self.config.eval_limit,
             include_feedback=include_feedback,
-            candidate=candidate,
-            user_profile=user_profile,
         )
-        self.question_answerer = QuestionAnswerer(
-            config=self.config,
-            ai=ai,
-            candidate=candidate,
-            user_profile=user_profile,
-            personal_summary=personal_summary,
-        )
+        self.question_answerer = QuestionAnswerer(config=self.config, ai=ai)
         self.job_processor = JobProcessor(ai=ai)
 
     def get_or_parse_job(
@@ -94,6 +83,23 @@ class ApplicationServices:
                 detail="Provide job_posting text/URL or a parsed job_description.",
             )
         return self.job_processor.process_and_extract_job_info(job_posting)
+
+
+# TODO (Step 3): Replace with get_current_user() dependency that reads the OID
+# from the Easy Auth header and returns it as a string.
+#
+# TODO (Step 5): Replace _load_user_data() with per-user blob loading:
+#   raw = services.user_data.load(user_id, "candidate.json")
+#   candidate = CandidateProfile.model_validate(raw)
+#   ... etc.
+def _load_user_data() -> tuple[CandidateProfile, UserProfile, PersonalSummary]:
+    """Temporary: loads from local files for single-user dev.
+    Replaced in Step 5 with per-request blob loading keyed by authenticated user OID.
+    """
+    candidate = load_json_model("you/candidate_CS.json", CandidateProfile, "candidate")
+    user_profile = load_json_model("you/personal_CS.json", UserProfile, "personal")
+    personal_summary = load_json_model("you/personal_summary_CS.json", PersonalSummary, "personal_summary")
+    return candidate, user_profile, personal_summary
 
 
 @asynccontextmanager
@@ -142,8 +148,9 @@ def parse_job(body: JobPostingBody, request: Request):
 @app.post("/api/v1/cover-letter", response_model=CoverLetterResponse)
 def generate_cover_letter(body: JobContextBody, request: Request):
     services = get_services(request)
+    candidate, user_profile, _ = _load_user_data()
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
-    cover_letter = services.cover_letter_builder.request_letter(job_desc)
+    cover_letter = services.cover_letter_builder.request_letter(job_desc, candidate, user_profile)
     return CoverLetterResponse(cover_letter=cover_letter)
 
 
@@ -168,8 +175,11 @@ def cover_letter_pdf(body: CoverLetterPdfBody, request: Request):
 @app.post("/api/v1/resume/tailor", response_model=TailorResumeResponse)
 def tailor_resume(body: TailorResumeBody, request: Request):
     services = get_services(request)
+    candidate, user_profile, _ = _load_user_data()
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
-    result = services.resume_builder.tailor_resume(job_desc, body.resume_feedback, body.last_resume_json)
+    result = services.resume_builder.tailor_resume(
+        job_desc, body.resume_feedback, body.last_resume_json, candidate, user_profile
+    )
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -205,8 +215,11 @@ def answer_question(body: AnswerQuestionBody, request: Request):
             detail="Please enter a question.",
         )
     services = get_services(request)
+    candidate, user_profile, personal_summary = _load_user_data()
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
-    answer = services.question_answerer.answer_question(job_desc, body.question)
+    answer = services.question_answerer.answer_question(
+        job_desc, body.question, candidate, user_profile, personal_summary
+    )
     return AnswerQuestionResponse(answer=answer)
 
 
