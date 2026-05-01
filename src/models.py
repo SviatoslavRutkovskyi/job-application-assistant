@@ -2,12 +2,11 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Literal, Optional
 from pathlib import Path
 
-# --- Candidate profile / source JSON ---
 
+# --- User identity (separate JSON file, not sent to model) ---
 
-class PersonalInfo(BaseModel):
-    """Contact block. Omit fields to hide them on the resume."""
-
+class UserProfile(BaseModel):
+    """Contact block rendered in the resume header. Kept out of model prompts."""
     name: str
     location: Optional[str] = None
     phone: Optional[str] = None
@@ -16,19 +15,18 @@ class PersonalInfo(BaseModel):
     linkedin_label: Optional[str] = None
 
 
+# --- Candidate career content (source JSON, no ids or line costs) ---
+
 class TextItem(BaseModel):
-    id: int
     text: str
 
 
 class SkillCategory(BaseModel):
-    id: int
     name: str
     skills: list[TextItem]
 
 
 class Project(BaseModel):
-    id: int
     name: str
     date: str
     github_link_names: list[str] = Field(default_factory=list)
@@ -37,7 +35,6 @@ class Project(BaseModel):
 
 
 class Experience(BaseModel):
-    id: int
     company_name: str
     job_title: str
     start_date: str
@@ -47,7 +44,6 @@ class Experience(BaseModel):
 
 
 class EducationEntry(BaseModel):
-    id: int
     institution: str
     date_range: str
     degree_line: str
@@ -55,7 +51,6 @@ class EducationEntry(BaseModel):
 
 
 class CertificateEntry(BaseModel):
-    id: int
     name: str
     issuer: Optional[str] = None
     date: Optional[str] = None
@@ -64,9 +59,7 @@ class CertificateEntry(BaseModel):
 
 class CandidateProfile(BaseModel):
     """Source JSON for tailoring; do not invent employers, dates, credentials, or bullets not present here."""
-
     profile: str
-    personal: PersonalInfo
     education: list[EducationEntry]
     certificates: list[CertificateEntry] = Field(default_factory=list)
     skills: list[SkillCategory]
@@ -74,8 +67,82 @@ class CandidateProfile(BaseModel):
     experiences: list[Experience]
 
 
-# --- Tailored resume output (model returns IDs + rewritten profile only) ---
+# --- Annotated candidate (built in memory; ids + line costs added at runtime) ---
 
+class AnnotatedProfile(BaseModel):
+    text: str
+    line_cost: float
+
+
+class AnnotatedBullet(BaseModel):
+    id: int
+    text: str
+    line_cost: float
+
+
+class AnnotatedSkill(BaseModel):
+    id: int
+    text: str
+
+
+class AnnotatedSkillCategory(BaseModel):
+    id: int
+    name: str
+    line_cost: float
+    skills: list[AnnotatedSkill]
+
+
+class AnnotatedProject(BaseModel):
+    id: int
+    name: str
+    date: str
+    github_link_names: list[str] = Field(default_factory=list)
+    github_links: list[str] = Field(default_factory=list)
+    line_cost: float
+    bullet_points: list[AnnotatedBullet]
+
+
+class AnnotatedExperience(BaseModel):
+    id: int
+    company_name: str
+    job_title: str
+    start_date: str
+    end_date: str
+    location: str
+    line_cost: float
+    bullet_points: list[AnnotatedBullet]
+
+
+class AnnotatedEducationEntry(BaseModel):
+    id: int
+    institution: str
+    date_range: str
+    degree_line: str
+    location: str
+    line_cost: float
+
+
+class AnnotatedCertificateEntry(BaseModel):
+    id: int
+    name: str
+    issuer: Optional[str] = None
+    date: Optional[str] = None
+    details: Optional[str] = None
+    line_cost: float
+
+
+class AnnotatedCandidate(BaseModel):
+    """CandidateProfile with ids and line costs. No personal info — UserProfile is kept separate."""
+    section_heading_line: float
+    profile: AnnotatedProfile
+    education: list[AnnotatedEducationEntry]
+    certificates: list[AnnotatedCertificateEntry] = Field(default_factory=list)
+    skills: list[AnnotatedSkillCategory]
+    projects: list[AnnotatedProject]
+    experiences: list[AnnotatedExperience]
+
+
+# --- Tailored resume output (model returns IDs + rewritten profile only) ---
 
 class SelectedSkillsCategory(BaseModel):
     category_id: int
@@ -102,7 +169,7 @@ class ResumeData(BaseModel):
     estimated_resume_lines: float
 
 
-# --- Resume layout & line estimates (JSON-driven) ---
+# --- Resume layout ---
 
 ResumeSectionId = Literal[
     "profile", "education", "experience", "projects", "skills", "certificates"
@@ -111,7 +178,6 @@ ResumeSectionId = Literal[
 
 class ResumeLayoutConfig(BaseModel):
     """Body section order (header is always rendered first, not listed here)."""
-
     section_order: list[ResumeSectionId]
 
 
@@ -121,35 +187,36 @@ class TextResponse(BaseModel):
     text: str
 
 
-# Cover letter-related models
+# --- Cover letter ---
+
 class Evaluation(BaseModel):
     is_acceptable: bool
     feedback: str
     score: int
 
 
+# --- Job description ---
+
 class JobDescription(BaseModel):
     """Structured info extracted from a job posting for resume & cover letter generation."""
-
     company_name: Optional[str] = None
     job_title: Optional[str] = None
-
     required_skills: list[str] = Field(default_factory=list)
     preferred_skills: list[str] = Field(default_factory=list)
     key_phrases: list[str] = Field(default_factory=list)
-
     responsibilities: list[str] = Field(default_factory=list)
     requirements: list[str] = Field(default_factory=list)
     description_summary: Optional[str] = None
-
     values: list[str] = Field(default_factory=list)
     culture_text: Optional[str] = None
 
 
+# --- App config ---
+
 class AppConfig(BaseModel):
     """App configuration. Paths are interpreted relative to the current working directory."""
-
     candidate_json: Path
+    personal_json: Path
     cover_letter_template: Path
     resume_template_tex: Path
     resume_layout_json: Path
@@ -157,18 +224,13 @@ class AppConfig(BaseModel):
     personal_summary: Path
 
 
-# --- API models (FastAPI request/response bodies) ---
-
+# --- API models ---
 
 class JobPostingBody(BaseModel):
-    """Scrape (if URL) + extract structured fields."""
-
     job_posting: str = Field(..., min_length=1, description="Job URL or pasted posting text.")
 
 
 class JobContextBody(BaseModel):
-    """Either send job_posting (parsed server-side) or reuse job_description from a prior call."""
-
     job_posting: str | None = None
     job_description: JobDescription | None = None
 
