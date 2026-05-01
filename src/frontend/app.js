@@ -3,7 +3,6 @@ let state = {
   jobPosting: "",
   parsedJob: null,
   coverLetterText: null,
-  resumePdfFilename: null,
   lastResumeJson: null,
 };
 
@@ -147,8 +146,7 @@ async function runAction(action) {
       };
       const result = await apiCall("POST", "/api/v1/resume/tailor", body);
       state.lastResumeJson = result.last_resume_json;
-      state.resumePdfUrl = "/api/v1/resume/download/" + result.pdf_blob_name;
-      renderResumePdf("/api/v1/resume/download/" + result.pdf_blob_name);
+      renderResumePdf("/api/v1/resume/download/" + result.pdf_url);
       toast("Resume tailored.", "success");
     } else if (action === "answer") {
       const pairs = document.querySelectorAll(".qa-pair");
