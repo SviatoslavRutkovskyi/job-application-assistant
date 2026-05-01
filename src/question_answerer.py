@@ -1,8 +1,8 @@
 import json
 
 from ai_client import AIClient
-from models import AppConfig, JobDescription, TextResponse
-from utils import load_candidate_data, load_user_profile
+from models import AppConfig, CandidateProfile, JobDescription, TextResponse, UserProfile
+from utils import load_json_model
 
 
 class QuestionAnswerer:
@@ -19,8 +19,8 @@ class QuestionAnswerer:
         with open(self.config.personal_summary, encoding="utf-8") as f:
             summary = json.dumps(json.load(f), indent=2, ensure_ascii=False)
 
-        candidate_data = load_candidate_data(self.config.candidate_json)
-        user_profile = load_user_profile(self.config.personal_json)
+        candidate_data = load_json_model(self.config.candidate_json, CandidateProfile, "candidate")
+        user_profile = load_json_model(self.config.personal_json, UserProfile, "personal")
         self.system_prompt = self._build_system_prompt(summary, candidate_data.model_dump_json(indent=2), user_profile.name)
 
     def answer_question(self, job_info: JobDescription, question: str) -> str:
