@@ -7,7 +7,7 @@ class AIClient:
         self.model = os.getenv("AI_MODEL", "gpt-4.1-mini")
         self.reasoning = os.getenv("AI_REASONING_MODEL", "o4-mini")
 
-    def run(self, system_prompt, user_message, schema, reasoning=False):
+    def run(self, system_prompt, user_message, schema, reasoning=False, reasoning_effort="low"):
         kwargs = dict(
             model=self.reasoning if reasoning else self.model,
             input=[
@@ -17,7 +17,7 @@ class AIClient:
             text_format=schema,
         )
         if reasoning:
-            kwargs["reasoning"] = {"effort": "low"}
+            kwargs["reasoning"] = {"effort": reasoning_effort}
 
         response = self.client.responses.parse(**kwargs)
         return response.output_parsed
