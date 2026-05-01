@@ -25,8 +25,6 @@ class Resume:
         ai: AIClient,
         blob: BlobClient,
         fit_limit: int,
-        candidate: CandidateProfile,
-        user_profile: UserProfile,
     ):
         self.config = config
         self.ai = ai
@@ -40,21 +38,6 @@ class Resume:
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
             raise ValueError(f"Invalid line estimates JSON at {line_path}: {e}") from e
 
-        self.user_profile = user_profile
-        self.annotated_candidate = annotate_candidate(candidate, self._line_estimates)
-
-        # Cache lookup dicts — annotated_candidate never mutates after init
-        ac = self.annotated_candidate
-        self._edu_costs   = {e.id: e.line_cost for e in ac.education}
-        self._cert_costs  = {c.id: c.line_cost for c in ac.certificates}
-        self._skill_costs = {s.id: s.line_cost for s in ac.skills}
-        self._exp_costs   = {e.id: e.line_cost for e in ac.experiences}
-        self._proj_costs  = {p.id: p.line_cost for p in ac.projects}
-        self._exp_bullet_costs  = {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experiences}
-        self._proj_bullet_costs = {p.id: {b.id: b.line_cost for b in p.bullet_points} for p in ac.projects}
-
-        self.system_prompt = self._build_system_prompt()
-
     def _fit_score(self, lines: float) -> tuple:
         min_l = self._line_estimates['min_page_lines']
         max_l = self._line_estimates['max_page_lines']
@@ -64,7 +47,29 @@ class Resume:
             return (1, min_l - lines)
         return (0, 0)
 
-    def tailor_resume(self, job_info: JobDescription, resume_feedback, last_resume_content=None):
+    def tailor_resume(
+        self,
+        job_info: JobDescription,
+        resume_feedback: str,
+        last_resume_content: str | None,
+        candidate: CandidateProfile,
+        user_profile: UserProfile,
+    ):
+        annotated_candidate = annotate_candidate(candidate, self._line_estimates)
+
+        # Cache lookup dicts — annotated_candidate never mutates after construction
+        ac = annotated_candidate
+        edu_costs   = {e.id: e.line_cost for e in ac.education}
+        cert_costs  = {c.id: c.line_cost for c in ac.certificates}
+        skill_costs = {s.id: s.line_cost for s in ac.skills}
+        exp_costs   = {e.id: e.line_cost for e in ac.experiences}
+        proj_costs  = {p.id: p.line_cost for p in ac.projects}
+        exp_bullet_costs  = {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experiences}
+        proj_bullet_costs = {p.id: {b.id: b.line_cost for b in p.bullet_points} for p in ac.projects}
+
+        cost_maps = (edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs)
+        system_prompt = self._build_system_prompt(annotated_candidate, user_profile)
+
         start_time = time.time()
         run_id = uuid4()
         logger.info(f"[tailor_resume called] run_id={run_id}")
@@ -83,8 +88,8 @@ class Resume:
                 elapsed = time.time() - start_time
                 logger.info(f"[2/5] Adjusting resume length — attempt {i + 1}/{self.fit_limit + 1} ({elapsed:.1f}s elapsed)")
 
-            resume_data = self.ai.run(self.system_prompt, message, ResumeData, reasoning=True, reasoning_effort="low")
-            lines_calculated = self.calculate_resume_lines(resume_data)
+            resume_data = self.ai.run(system_prompt, message, ResumeData, reasoning=True, reasoning_effort="low")
+            lines_calculated = self.calculate_resume_lines(resume_data, annotated_candidate, cost_maps)
             score = self._fit_score(lines_calculated)
 
             elapsed = time.time() - start_time
@@ -105,7 +110,7 @@ class Resume:
             message = self._build_retry_message(job_info, resume_data.model_dump_json(), lines_calculated)
 
         resume_data = best_resume_data
-        final_lines = self.calculate_resume_lines(resume_data)
+        final_lines = self.calculate_resume_lines(resume_data, annotated_candidate, cost_maps)
 
         if self._fit_score(final_lines) != (0, 0):
             if final_lines > self._line_estimates['max_page_lines']:
@@ -121,7 +126,7 @@ class Resume:
         company_name_sanitized = sanitize_filename(job_info.company_name or "")
         filename_base = f"resume_{company_name_sanitized}" if company_name_sanitized else "resume"
 
-        latex_content = self.latex_generator.convert_to_latex(self.annotated_candidate, self.user_profile, resume_data)
+        latex_content = self.latex_generator.convert_to_latex(annotated_candidate, user_profile, resume_data)
         if latex_content is None:
             logger.error("Failed to create LaTeX from resume data")
             return None
@@ -133,7 +138,6 @@ class Resume:
             tmp_path = Path(tmp)
             tex_path = tmp_path / f"{filename_base}.tex"
             tex_path.write_bytes(latex_content.encode("utf-8"))
-            pdf_path = tex_path.with_suffix(".pdf")
 
             result = subprocess.run(
                 ["tectonic", tex_path.name],
@@ -147,22 +151,23 @@ class Resume:
                 logger.error(f"LaTeX error details: {result.stderr}")
                 return None
 
-            blob_name = self.blob.upload(f"{filename_base}.pdf", pdf_path.read_bytes())
+            blob_name = self.blob.upload(f"{filename_base}.pdf", tex_path.with_suffix(".pdf").read_bytes())
 
         elapsed = time.time() - start_time
         logger.info(f"[5/5] Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")
         return blob_name, resume_data.model_dump_json()
 
-    def calculate_resume_lines(self, resume_data: ResumeData) -> float:
-        H = self.annotated_candidate.section_heading_line
+    def calculate_resume_lines(self, resume_data: ResumeData, annotated_candidate, cost_maps: tuple) -> float:
+        edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs = cost_maps
+        H = annotated_candidate.section_heading_line
         chars_per_line = self._line_estimates["chars_per_line"]
 
         total = H + math.ceil(len(resume_data.profile) / chars_per_line)
 
         flat_sections = [
-            (resume_data.selected_education_ids,                        self._edu_costs),
-            (resume_data.selected_certificate_ids,                      self._cert_costs),
-            ([sel.category_id for sel in resume_data.selected_skills],  self._skill_costs),
+            (resume_data.selected_education_ids,                        edu_costs),
+            (resume_data.selected_certificate_ids,                      cert_costs),
+            ([sel.category_id for sel in resume_data.selected_skills],  skill_costs),
         ]
         for ids, cost_map in flat_sections:
             if ids:
@@ -171,24 +176,24 @@ class Resume:
         if resume_data.selected_experiences:
             total += H
             for se in resume_data.selected_experiences:
-                total += self._exp_costs.get(se.experience_id, 0)
-                total += sum(self._exp_bullet_costs.get(se.experience_id, {}).get(bid, 0) for bid in se.bullet_ids)
+                total += exp_costs.get(se.experience_id, 0)
+                total += sum(exp_bullet_costs.get(se.experience_id, {}).get(bid, 0) for bid in se.bullet_ids)
 
         if resume_data.selected_projects:
             total += H
             for sp in resume_data.selected_projects:
-                total += self._proj_costs.get(sp.project_id, 0)
-                total += sum(self._proj_bullet_costs.get(sp.project_id, {}).get(bid, 0) for bid in sp.bullet_ids)
+                total += proj_costs.get(sp.project_id, 0)
+                total += sum(proj_bullet_costs.get(sp.project_id, {}).get(bid, 0) for bid in sp.bullet_ids)
 
         return total
 
-    def _build_system_prompt(self):
-        candidate_dict = self.annotated_candidate.model_dump(
+    def _build_system_prompt(self, annotated_candidate, user_profile: UserProfile) -> str:
+        candidate_dict = annotated_candidate.model_dump(
             exclude={"projects": {"__all__": {"github_links", "github_link_names"}}}
         )
         candidate_json = json.dumps(candidate_dict, indent=2)
-        name = self.user_profile.name
-        location = self.user_profile.location or ""
+        name = user_profile.name
+        location = user_profile.location or ""
         min_l = self._line_estimates["min_page_lines"]
         max_l = self._line_estimates["max_page_lines"]
 
@@ -219,7 +224,7 @@ If you receive feedback stating your actual line count, treat it as truth and ad
     def _job_section(self, job_info: JobDescription) -> str:
         return f"## Job posting\n{job_info.model_dump_json(indent=2)}"
 
-    def _build_user_message(self, job_info: JobDescription, resume_feedback, last_resume_content=None):
+    def _build_user_message(self, job_info: JobDescription, resume_feedback: str, last_resume_content: str | None):
         parts = [self._job_section(job_info)]
 
         if last_resume_content:

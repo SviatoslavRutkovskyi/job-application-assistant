@@ -16,8 +16,6 @@ class CoverLetter:
         ai: AIClient,
         eval_limit: int,
         include_feedback: bool,
-        candidate: CandidateProfile,
-        user_profile: UserProfile,
     ):
         self.config = config
         self.ai = ai
@@ -27,13 +25,11 @@ class CoverLetter:
         with open(self.config.cover_letter_template, encoding="utf-8") as f:
             self.cover_letter_template = f.read()
 
-        candidate_json = candidate.model_dump_json(indent=2)
-        name = user_profile.name
+    def _build_system_prompt(self, candidate: CandidateProfile, user_profile: UserProfile) -> str:
+        return f"""
+You are a professional cover letter writer writing on behalf of {user_profile.name}.
 
-        self.system_prompt = f"""
-You are a professional cover letter writer writing on behalf of {name}.
-
-You are given {name}'s resume data and a job description.
+You are given {user_profile.name}'s resume data and a job description.
 
 - Select the most relevant projects and experiences for this specific role
 - Use only information from the candidate data — do not fabricate metrics, percentages, or figures not present in the data
@@ -43,10 +39,11 @@ You are given {name}'s resume data and a job description.
 If given a rejected cover letter and feedback, treat each criticism as a specific failure mode to fix, not a suggestion to acknowledge.
 
 ## Candidate Data:
-{candidate_json}
+{candidate.model_dump_json(indent=2)}
 """
 
-        self.evaluator_system_prompt = f"""
+    def _build_evaluator_system_prompt(self, candidate: CandidateProfile) -> str:
+        return f"""
 You are a professional hiring manager evaluating a cover letter for submission.
 Your job is to determine whether the cover letter is ready to send based on five dimensions.
 
@@ -79,17 +76,25 @@ Scoring rules:
 - If the job description provides insufficient context to identify a specific technical challenge, do not require company-specific technical connections in the closing. A reasonable connection to the company's stated focus is sufficient
 
 ## Candidate Data:
-{candidate_json}
+{candidate.model_dump_json(indent=2)}
 """
 
-    def evaluate(self, job_info: JobDescription, cover_letter: str) -> Evaluation:
+    def evaluate(self, evaluator_system_prompt: str, job_info: JobDescription, cover_letter: str) -> Evaluation:
         return self.ai.run(
-            self.evaluator_system_prompt,
+            evaluator_system_prompt,
             f"Job Description:\n{job_info.model_dump_json(indent=2)}\n\nCover Letter:\n{cover_letter}",
             Evaluation,
         )
 
-    def request_letter(self, job_info: JobDescription) -> str:
+    def request_letter(
+        self,
+        job_info: JobDescription,
+        candidate: CandidateProfile,
+        user_profile: UserProfile,
+    ) -> str:
+        system_prompt = self._build_system_prompt(candidate, user_profile)
+        evaluator_system_prompt = self._build_evaluator_system_prompt(candidate)
+
         logger.info("Requesting cover letter")
         logger.info(f"Job: {job_info.job_title or 'N/A'} at {job_info.company_name or 'N/A'}")
 
@@ -105,8 +110,8 @@ Scoring rules:
         best_feedback = ""
 
         for i in range(self.eval_limit):
-            cover_letter = self.ai.run(self.system_prompt, current_message, TextResponse).text
-            evaluation = self.evaluate(job_info, cover_letter)
+            cover_letter = self.ai.run(system_prompt, current_message, TextResponse).text
+            evaluation = self.evaluate(evaluator_system_prompt, job_info, cover_letter)
 
             logger.info(f"[attempt {i + 1}/{self.eval_limit}] score: {evaluation.score} — {'passed' if evaluation.is_acceptable else 'retrying'}")
             logger.info(f"    cover letter: {cover_letter}")

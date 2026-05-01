@@ -7,22 +7,21 @@ from models import AppConfig, CandidateProfile, JobDescription, PersonalSummary,
 class QuestionAnswerer:
     """Class for answering interview questions from the candidate's perspective."""
 
-    def __init__(
-        self,
-        config: AppConfig,
-        ai: AIClient,
-        candidate: CandidateProfile,
-        user_profile: UserProfile,
-        personal_summary: PersonalSummary,
-    ):
+    def __init__(self, config: AppConfig, ai: AIClient):
         self.config = config
         self.ai = ai
 
+    def answer_question(
+        self,
+        job_info: JobDescription,
+        question: str,
+        candidate: CandidateProfile,
+        user_profile: UserProfile,
+        personal_summary: PersonalSummary,
+    ) -> str:
         summary = json.dumps(personal_summary.model_dump(), indent=2, ensure_ascii=False)
-        self.system_prompt = self._build_system_prompt(summary, candidate.model_dump_json(indent=2), user_profile.name)
-
-    def answer_question(self, job_info: JobDescription, question: str) -> str:
-        return self.ai.run(self.system_prompt, self._build_user_message(job_info, question), TextResponse).text
+        system_prompt = self._build_system_prompt(summary, candidate.model_dump_json(indent=2), user_profile.name)
+        return self.ai.run(system_prompt, self._build_user_message(job_info, question), TextResponse).text
 
     def _build_system_prompt(self, summary: str, candidate_json: str, name: str) -> str:
         return f"""You are answering open-ended job application questions on behalf of {name}. Answers will be submitted directly — write in first person.
