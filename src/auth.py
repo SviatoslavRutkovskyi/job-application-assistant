@@ -3,10 +3,15 @@ import json
 import logging
 import os
 
+
 from fastapi import Header, HTTPException, status
+from dotenv import load_dotenv
+
 
 logger = logging.getLogger(__name__)
 
+
+load_dotenv()
 _DEV_MODE = os.getenv("DEV_MODE", "").lower() == "true"
 _DEV_USER_OID = os.getenv("DEV_USER_OID", "")
 

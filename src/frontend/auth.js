@@ -1,10 +1,12 @@
+const _IS_LOCAL = window.location.hostname === "localhost";
+
 // Checks /.auth/me and returns the user object, or null if unauthenticated.
 async function getUser() {
+  if (_IS_LOCAL) return { userId: "dev" };
   try {
     const res = await fetch("/.auth/me");
     if (!res.ok) return null;
     const payload = await res.json();
-    // Easy Auth returns an array of client principals
     return payload?.clientPrincipal ?? null;
   } catch {
     return null;
@@ -19,8 +21,9 @@ async function requireAuthAndProfile() {
     window.location.href = "/frontend/login.html";
     return;
   }
+  if (_IS_LOCAL) return; // skip profile check locally — backend dev mode handles it
   const res = await fetch("/api/v1/profile/exists");
-  if (!res.ok) return; // network error — let the app handle it
+  if (!res.ok) return;
   const { exists } = await res.json();
   if (!exists) {
     window.location.href = "/frontend/profile-setup.html";
@@ -28,8 +31,8 @@ async function requireAuthAndProfile() {
 }
 
 // Call on profile-setup.html — redirects to login if unauthenticated only.
-// Does not check profile existence (that's what we're setting up).
 async function requireAuth() {
+  if (_IS_LOCAL) return;
   const user = await getUser();
   if (!user) {
     window.location.href = "/frontend/login.html";
