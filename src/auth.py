@@ -47,7 +47,7 @@ async def get_current_user(
         decoded = base64.b64decode(x_ms_client_principal).decode("utf-8")
         principal = json.loads(decoded)
         claims = {claim["typ"]: claim["val"] for claim in principal.get("claims", [])}
-        oid = claims.get("oid")
+        oid = claims.get("oid") or claims.get("http://schemas.microsoft.com/identity/claims/objectidentifier")
     except Exception:
         logger.exception("Failed to parse X-MS-CLIENT-PRINCIPAL header")
         raise HTTPException(
