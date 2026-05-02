@@ -32,7 +32,7 @@ from models import (
 from question_answerer import QuestionAnswerer
 from resume import Resume
 from user_data_client import UserDataClient
-from utils import load_json_model, sanitize_filename, validate_app_config
+from utils import sanitize_filename, validate_app_config
 
 
 load_dotenv(override=True)
@@ -88,18 +88,27 @@ class ApplicationServices:
         return self.job_processor.process_and_extract_job_info(job_posting)
 
 
-# TODO (Step 5): Remove _load_user_data() entirely. Each endpoint gets
-#   user_id: str = Depends(get_current_user)
-# and loads profile data via services.user_data.load(user_id, ...).
-# auth.py is already written and ready to import.
-def _load_user_data() -> tuple[CandidateProfile, UserProfile, PersonalSummary]:
-    """Temporary: loads from local files for single-user dev.
-    Replaced in Step 5 with per-request blob loading keyed by authenticated user OID.
+def _load_user_profile(
+    services: ApplicationServices, user_id: str
+) -> tuple[CandidateProfile, UserProfile, PersonalSummary]:
+    """Load and validate all three profile blobs for the authenticated user.
+    Raises 400 if any file is missing — directs the user to complete profile setup.
     """
-    candidate = load_json_model("you/candidate_CS.json", CandidateProfile, "candidate")
-    user_profile = load_json_model("you/personal_CS.json", UserProfile, "personal")
-    personal_summary = load_json_model("you/personal_summary_CS.json", PersonalSummary, "personal_summary")
-    return candidate, user_profile, personal_summary
+    personal_raw = services.user_data.load(user_id, "personal.json")
+    candidate_raw = services.user_data.load(user_id, "candidate.json")
+    personal_summary_raw = services.user_data.load(user_id, "personal_summary.json")
+
+    if any(raw is None for raw in (personal_raw, candidate_raw, personal_summary_raw)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profile setup incomplete. Upload all three profile files before using the app.",
+        )
+
+    return (
+        CandidateProfile.model_validate(candidate_raw),
+        UserProfile.model_validate(personal_raw),
+        PersonalSummary.model_validate(personal_summary_raw),
+    )
 
 
 @asynccontextmanager
@@ -142,7 +151,7 @@ def root():
 # --- Job ---
 
 @app.post("/api/v1/job/parse", response_model=JobDescription)
-def parse_job(body: JobPostingBody, request: Request):
+def parse_job(body: JobPostingBody, request: Request, user_id: str = Depends(get_current_user)):
     services = get_services(request)
     return services.job_processor.process_and_extract_job_info(body.job_posting.strip())
 
@@ -205,16 +214,24 @@ def update_candidate(
 # --- Cover letter ---
 
 @app.post("/api/v1/cover-letter", response_model=CoverLetterResponse)
-def generate_cover_letter(body: JobContextBody, request: Request):
+def generate_cover_letter(
+    body: JobContextBody,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
     services = get_services(request)
-    candidate, user_profile, _ = _load_user_data()
+    candidate, user_profile, _ = _load_user_profile(services, user_id)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     cover_letter = services.cover_letter_builder.request_letter(job_desc, candidate, user_profile)
     return CoverLetterResponse(cover_letter=cover_letter)
 
 
 @app.post("/api/v1/cover-letter/pdf")
-def cover_letter_pdf(body: CoverLetterPdfBody, request: Request):
+def cover_letter_pdf(
+    body: CoverLetterPdfBody,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
     services = get_services(request)
     company_name = body.job_description.company_name if body.job_description else None
     pdf_bytes = services.cover_letter_builder.convert_cover_letter_to_pdf(body.cover_letter_text)
@@ -234,12 +251,16 @@ def cover_letter_pdf(body: CoverLetterPdfBody, request: Request):
 # --- Resume ---
 
 @app.post("/api/v1/resume/tailor", response_model=TailorResumeResponse)
-def tailor_resume(body: TailorResumeBody, request: Request):
+def tailor_resume(
+    body: TailorResumeBody,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
     services = get_services(request)
-    candidate, user_profile, _ = _load_user_data()
+    candidate, user_profile, _ = _load_user_profile(services, user_id)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     result = services.resume_builder.tailor_resume(
-        job_desc, body.resume_feedback, body.last_resume_json, candidate, user_profile
+        job_desc, body.resume_feedback, body.last_resume_json, candidate, user_profile, user_id
     )
     if result is None:
         raise HTTPException(
@@ -254,7 +275,11 @@ def tailor_resume(body: TailorResumeBody, request: Request):
 
 
 @app.get("/api/v1/resume/download/{blob_name:path}")
-def download_resume(blob_name: str, request: Request):
+def download_resume(
+    blob_name: str,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
     """Proxies PDF from Blob Storage to the client."""
     try:
         pdf_bytes, filename = get_services(request).blob.download(blob_name)
@@ -271,14 +296,18 @@ def download_resume(blob_name: str, request: Request):
 # --- Questions ---
 
 @app.post("/api/v1/questions/answer", response_model=AnswerQuestionResponse)
-def answer_question(body: AnswerQuestionBody, request: Request):
+def answer_question(
+    body: AnswerQuestionBody,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
     if not body.question.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please enter a question.",
         )
     services = get_services(request)
-    candidate, user_profile, personal_summary = _load_user_data()
+    candidate, user_profile, personal_summary = _load_user_profile(services, user_id)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     answer = services.question_answerer.answer_question(
         job_desc, body.question, candidate, user_profile, personal_summary
