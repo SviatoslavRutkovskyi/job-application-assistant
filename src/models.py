@@ -286,3 +286,13 @@ class AnswerQuestionBody(JobContextBody):
 
 class AnswerQuestionResponse(BaseModel):
     answer: str
+
+
+class ProfileExistsResponse(BaseModel):
+    exists: bool
+
+
+class ProfileResponse(BaseModel):
+    personal: UserProfile
+    candidate: CandidateProfile
+    personal_summary: PersonalSummary

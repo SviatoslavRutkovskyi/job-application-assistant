@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from ai_client import AIClient
+from auth import get_current_user
 from blob_client import BlobClient
 from cover_letter import CoverLetter
 from job_processor import JobProcessor
@@ -22,6 +23,8 @@ from models import (
     JobPostingBody,
     JobContextBody,
     PersonalSummary,
+    ProfileExistsResponse,
+    ProfileResponse,
     TailorResumeBody,
     TailorResumeResponse,
     UserProfile,
@@ -85,13 +88,10 @@ class ApplicationServices:
         return self.job_processor.process_and_extract_job_info(job_posting)
 
 
-# TODO (Step 3): Replace with get_current_user() dependency that reads the OID
-# from the Easy Auth header and returns it as a string.
-#
-# TODO (Step 5): Replace _load_user_data() with per-user blob loading:
-#   raw = services.user_data.load(user_id, "candidate.json")
-#   candidate = CandidateProfile.model_validate(raw)
-#   ... etc.
+# TODO (Step 5): Remove _load_user_data() entirely. Each endpoint gets
+#   user_id: str = Depends(get_current_user)
+# and loads profile data via services.user_data.load(user_id, ...).
+# auth.py is already written and ready to import.
 def _load_user_data() -> tuple[CandidateProfile, UserProfile, PersonalSummary]:
     """Temporary: loads from local files for single-user dev.
     Replaced in Step 5 with per-request blob loading keyed by authenticated user OID.
@@ -139,11 +139,70 @@ def root():
     return HTMLResponse((Path("frontend") / "index.html").read_text())
 
 
+# --- Job ---
+
 @app.post("/api/v1/job/parse", response_model=JobDescription)
 def parse_job(body: JobPostingBody, request: Request):
     services = get_services(request)
     return services.job_processor.process_and_extract_job_info(body.job_posting.strip())
 
+
+# --- Profile ---
+
+@app.get("/api/v1/profile/exists", response_model=ProfileExistsResponse)
+def profile_exists(request: Request, user_id: str = Depends(get_current_user)):
+    services = get_services(request)
+    return ProfileExistsResponse(exists=services.user_data.exists(user_id))
+
+
+@app.get("/api/v1/profile", response_model=ProfileResponse)
+def get_profile(request: Request, user_id: str = Depends(get_current_user)):
+    services = get_services(request)
+    personal_raw = services.user_data.load(user_id, "personal.json")
+    candidate_raw = services.user_data.load(user_id, "candidate.json")
+    personal_summary_raw = services.user_data.load(user_id, "personal_summary.json")
+
+    if any(raw is None for raw in (personal_raw, candidate_raw, personal_summary_raw)):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found. Complete profile setup first.",
+        )
+
+    return ProfileResponse(
+        personal=UserProfile.model_validate(personal_raw),
+        candidate=CandidateProfile.model_validate(candidate_raw),
+        personal_summary=PersonalSummary.model_validate(personal_summary_raw),
+    )
+
+
+@app.put("/api/v1/profile/personal", status_code=status.HTTP_204_NO_CONTENT)
+def update_personal(
+    body: UserProfile,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    get_services(request).user_data.save(user_id, "personal.json", body.model_dump())
+
+
+@app.put("/api/v1/profile/personal-summary", status_code=status.HTTP_204_NO_CONTENT)
+def update_personal_summary(
+    body: PersonalSummary,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    get_services(request).user_data.save(user_id, "personal_summary.json", body.model_dump())
+
+
+@app.put("/api/v1/profile/candidate", status_code=status.HTTP_204_NO_CONTENT)
+def update_candidate(
+    body: CandidateProfile,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    get_services(request).user_data.save(user_id, "candidate.json", body.model_dump())
+
+
+# --- Cover letter ---
 
 @app.post("/api/v1/cover-letter", response_model=CoverLetterResponse)
 def generate_cover_letter(body: JobContextBody, request: Request):
@@ -171,6 +230,8 @@ def cover_letter_pdf(body: CoverLetterPdfBody, request: Request):
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
+
+# --- Resume ---
 
 @app.post("/api/v1/resume/tailor", response_model=TailorResumeResponse)
 def tailor_resume(body: TailorResumeBody, request: Request):
@@ -206,6 +267,8 @@ def download_resume(blob_name: str, request: Request):
         logger.error(f"Failed to download blob {blob_name}: {e}")
         raise HTTPException(status_code=404, detail="Resume not found.")
 
+
+# --- Questions ---
 
 @app.post("/api/v1/questions/answer", response_model=AnswerQuestionResponse)
 def answer_question(body: AnswerQuestionBody, request: Request):
