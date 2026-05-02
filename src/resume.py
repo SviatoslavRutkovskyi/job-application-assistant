@@ -54,6 +54,7 @@ class Resume:
         last_resume_content: str | None,
         candidate: CandidateProfile,
         user_profile: UserProfile,
+        user_id: str,
     ):
         annotated_candidate = annotate_candidate(candidate, self._line_estimates)
 
@@ -151,7 +152,7 @@ class Resume:
                 logger.error(f"LaTeX error details: {result.stderr}")
                 return None
 
-            blob_name = self.blob.upload(f"{filename_base}.pdf", tex_path.with_suffix(".pdf").read_bytes())
+            blob_name = self.blob.upload(f"{filename_base}.pdf", tex_path.with_suffix(".pdf").read_bytes(), user_id)
 
         elapsed = time.time() - start_time
         logger.info(f"[5/5] Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")

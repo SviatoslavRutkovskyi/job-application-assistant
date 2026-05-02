@@ -14,8 +14,8 @@ class BlobClient:
             credential=DefaultAzureCredential(),
         )
 
-    def upload(self, filename: str, data: bytes, content_type: str = "application/pdf") -> str:
-        blob_name = f"{uuid4()}-{filename}"
+    def upload(self, filename: str, data: bytes, user_id: str, content_type: str = "application/pdf") -> str:
+        blob_name = f"{user_id}/{uuid4()}-{filename}"
         self._client.get_blob_client(
             container=self.container, blob=blob_name
         ).upload_blob(
