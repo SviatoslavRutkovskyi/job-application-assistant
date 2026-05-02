@@ -143,6 +143,13 @@ def health():
     return {"status": "ok"}
 
 
+# --- Auth ---
+
+@app.get("/api/v1/auth/me")
+def auth_me(request: Request, user_id: str = Depends(get_current_user)):
+    return {"oid": user_id}
+
+
 @app.get("/")
 def root():
     return HTMLResponse((Path("frontend") / "index.html").read_text())
