@@ -8,6 +8,7 @@ from fastapi import Header, HTTPException, status
 logger = logging.getLogger(__name__)
 
 _DEV_MODE = os.getenv("DEV_MODE", "").lower() == "true"
+_DEV_USER_OID = os.getenv("DEV_USER_OID", "")
 
 
 async def get_current_user(
@@ -20,12 +21,16 @@ async def get_current_user(
     Azure Container Apps Easy Auth. The header is base64-encoded JSON
     containing a claims array; we extract the 'oid' claim.
 
-    In dev (DEV_MODE=true), falls back to the X-User-OID header so the
-    app can be tested locally without a real Entra tenant.
+    In dev (DEV_MODE=true), returns DEV_USER_OID from environment if set,
+    otherwise falls back to the X-User-OID header.
     """
-    if _DEV_MODE and x_user_oid:
-        logger.debug(f"Dev mode: using X-User-OID header: {x_user_oid}")
-        return x_user_oid
+    if _DEV_MODE:
+        if _DEV_USER_OID:
+            logger.debug(f"Dev mode: using DEV_USER_OID: {_DEV_USER_OID}")
+            return _DEV_USER_OID
+        if x_user_oid:
+            logger.debug(f"Dev mode: using X-User-OID header: {x_user_oid}")
+            return x_user_oid
 
     if not x_ms_client_principal:
         raise HTTPException(
