@@ -15,9 +15,19 @@
     <!-- Header -->
     <header>
       <span class="header-title">job-application-assistant</span>
-      <div class="job-status">
-        <div class="status-dot" id="status-dot"></div>
-        <span id="status-text">no job loaded</span>
+      <div style="display: flex; align-items: center; gap: 16px">
+        <div class="job-status">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">no job loaded</span>
+        </div>
+        <a class="btn btn-sm" href="/frontend/profile-setup.html"
+          >Edit Profile</a
+        >
+        <a
+          class="btn btn-sm"
+          href="/.auth/logout?post_logout_redirect_uri=/frontend/login.html"
+          >Sign Out</a
+        >
       </div>
     </header>
 
@@ -212,6 +222,12 @@
     <!-- Toast container -->
     <div id="toast-container"></div>
 
+    <script src="/frontend/auth.js" defer></script>
     <script src="/frontend/app.js" defer></script>
+    <script defer>
+      document.addEventListener("DOMContentLoaded", () =>
+        requireAuthAndProfile(),
+      );
+    </script>
   </body>
 </html>
