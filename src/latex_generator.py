@@ -205,11 +205,12 @@ class LatexGenerator:
             r"\resumeSubHeadingListStart",
         ]
         for edu in entries:
+            degree_text = edu.degree_line + (f" | GPA: {edu.gpa}" if edu.gpa else "")
             lines.append(
                 r"    \ResumeEducationEntry{"
                 + self._e(edu.institution) + "}{"
-                + self._e(edu.date_range) + "}{"
-                + self._e(edu.degree_line) + "}{"
+                + self._e(edu.start_date + " -- " + edu.end_date) + "}{"
+                + self._e(degree_text) + "}{"
                 + self._e(edu.location) + "}"
             )
         lines.append(r"\resumeSubHeadingListEnd")
@@ -224,10 +225,10 @@ class LatexGenerator:
         ]
         for project, bullets in blocks:
             github_suffix = ""
-            if project.github_links and project.github_link_names:
+            if project.github_links:
                 parts = [
-                    self._github_link_tex(link, name)
-                    for link, name in zip(project.github_links, project.github_link_names)
+                    self._github_link_tex(link.url, link.name)
+                    for link in project.github_links
                 ]
                 github_suffix = " $|$ " + " ".join(parts)
 

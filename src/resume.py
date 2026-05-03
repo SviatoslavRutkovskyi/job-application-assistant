@@ -190,7 +190,7 @@ class Resume:
 
     def _build_system_prompt(self, annotated_candidate, user_profile: UserProfile) -> str:
         candidate_dict = annotated_candidate.model_dump(
-            exclude={"projects": {"__all__": {"github_links", "github_link_names"}}}
+            exclude={"projects": {"__all__": {"github_links"}}}
         )
         candidate_json = json.dumps(candidate_dict, indent=2)
         name = user_profile.name

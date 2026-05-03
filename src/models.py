@@ -29,6 +29,11 @@ class PersonalSummary(BaseModel):
 
 # --- Candidate career content (source JSON, no ids or line costs) ---
 
+class GithubLink(BaseModel):
+    name: str
+    url: str
+
+
 class TextItem(BaseModel):
     text: str
 
@@ -41,8 +46,7 @@ class SkillCategory(BaseModel):
 class Project(BaseModel):
     name: str
     date: str
-    github_link_names: list[str] = Field(default_factory=list)
-    github_links: list[str] = Field(default_factory=list)
+    github_links: list[GithubLink] = Field(default_factory=list)
     bullet_points: list[TextItem]
 
 
@@ -57,8 +61,10 @@ class Experience(BaseModel):
 
 class EducationEntry(BaseModel):
     institution: str
-    date_range: str
+    start_date: str
+    end_date: str
     degree_line: str
+    gpa: Optional[str] = None
     location: str
 
 
@@ -108,8 +114,7 @@ class AnnotatedProject(BaseModel):
     id: int
     name: str
     date: str
-    github_link_names: list[str] = Field(default_factory=list)
-    github_links: list[str] = Field(default_factory=list)
+    github_links: list[GithubLink] = Field(default_factory=list)
     line_cost: float
     bullet_points: list[AnnotatedBullet]
 
@@ -128,8 +133,10 @@ class AnnotatedExperience(BaseModel):
 class AnnotatedEducationEntry(BaseModel):
     id: int
     institution: str
-    date_range: str
+    start_date: str
+    end_date: str
     degree_line: str
+    gpa: Optional[str] = None
     location: str
     line_cost: float
 
