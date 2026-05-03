@@ -71,7 +71,7 @@ class ApplicationServices:
             eval_limit=self.config.eval_limit,
             include_feedback=include_feedback,
         )
-        self.question_answerer = QuestionAnswerer(config=self.config, ai=ai)
+        self.question_answerer = QuestionAnswerer(ai=ai)
         self.job_processor = JobProcessor(ai=ai)
 
     def get_or_parse_job(
