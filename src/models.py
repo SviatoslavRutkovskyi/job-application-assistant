@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 from typing import Literal, Optional
 from pathlib import Path
 
@@ -17,10 +17,14 @@ class UserProfile(BaseModel):
 
 # --- Personal summary (narrative context for Q&A, not sent to resume/cover letter model) ---
 
+class SummaryTopic(BaseModel):
+    topic: str
+    response: str
+
+
 class PersonalSummary(BaseModel):
-    """Free-form narrative fields for answering open-ended application questions.
-    Extra fields are allowed so the schema works across different candidate profiles."""
-    model_config = ConfigDict(extra="allow")
+    """Narrative topics for answering open-ended application questions."""
+    topics: list[SummaryTopic] = Field(default_factory=list)
 
 
 # --- Candidate career content (source JSON, no ids or line costs) ---
