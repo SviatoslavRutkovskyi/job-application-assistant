@@ -17,7 +17,7 @@ async function getUser() {
 async function requireAuthAndProfile() {
   const user = await getUser();
   if (!user) {
-    window.location.href = "/frontend/login.html";
+    window.location.href = "/frontend/landing.html";
     return;
   }
   if (_IS_LOCAL) {
@@ -42,6 +42,6 @@ async function requireAuth() {
   if (_IS_LOCAL) return;
   const user = await getUser();
   if (!user) {
-    window.location.href = "/frontend/login.html";
+    window.location.href = "/frontend/landing.html";
   }
 }
