@@ -48,25 +48,6 @@ def sanitize_filename(name: str) -> str:
     return sanitized.lower().strip("_")
 
 
-def load_json_model[T](file_path: str | Path, model_cls: type[T], label: str) -> T:
-    """Load a JSON file and validate it against a Pydantic model."""
-    try:
-        with open(file_path, encoding="utf-8") as f:
-            data = json.load(f)
-        return model_cls.model_validate(data)
-    except FileNotFoundError:
-        logger.error(f"{label} file not found at {file_path}")
-        raise
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in {label} file: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Invalid {label} data structure: {e}")
-        raise
-
-
-
-
 
 def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> AnnotatedCandidate:
     """Build AnnotatedCandidate from source data. Assigns ids and computes line costs."""

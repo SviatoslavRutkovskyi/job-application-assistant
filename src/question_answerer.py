@@ -1,14 +1,13 @@
 import json
 
 from ai_client import AIClient
-from models import AppConfig, CandidateProfile, JobDescription, PersonalSummary, TextResponse, UserProfile
+from models import CandidateProfile, JobDescription, PersonalSummary, TextResponse, UserProfile
 
 
 class QuestionAnswerer:
     """Class for answering interview questions from the candidate's perspective."""
 
-    def __init__(self, config: AppConfig, ai: AIClient):
-        self.config = config
+    def __init__(self, ai: AIClient):
         self.ai = ai
 
     def answer_question(
