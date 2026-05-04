@@ -297,8 +297,6 @@ class LatexGenerator:
                 sub.append(self._e(c.issuer))
             if c.date:
                 sub.append(self._e(c.date))
-            if c.details:
-                sub.append(self._e(c.details))
             mid = ", ".join(sub)
             lines.append(
                 r"    \ResumeCertRow{"

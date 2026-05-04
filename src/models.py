@@ -72,7 +72,6 @@ class CertificateEntry(BaseModel):
     name: str
     issuer: Optional[str] = None
     date: Optional[str] = None
-    details: Optional[str] = None
 
 
 class CandidateProfile(BaseModel):
@@ -146,7 +145,6 @@ class AnnotatedCertificateEntry(BaseModel):
     name: str
     issuer: Optional[str] = None
     date: Optional[str] = None
-    details: Optional[str] = None
     line_cost: float
 
 
