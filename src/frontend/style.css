@@ -587,17 +587,6 @@ textarea::placeholder {
   gap: 8px;
 }
 
-.bullet-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.bullet-row textarea {
-  min-height: 42px;
-  resize: vertical;
-}
-
 .skill-rows {
   display: flex;
   flex-direction: column;
@@ -689,20 +678,16 @@ textarea::placeholder {
   align-items: center;
   justify-content: center;
   background: var(--accent);
-  color: white;
+  color: #0d2a1a;
   border-radius: 10px;
   font-size: 9px;
-  padding: 1px 5px;
-  margin-left: 5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  margin-left: 6px;
   font-family: var(--mono);
   vertical-align: middle;
-  line-height: 1.4;
-}
-
-@media (prefers-color-scheme: dark) {
-  .tab-badge {
-    color: #0d2a1a;
-  }
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
 .saving-indicator {
@@ -721,4 +706,182 @@ textarea::placeholder {
   .repo-row input:first-child {
     grid-column: 1;
   }
+}
+
+/* ── Month input — match text/textarea styling ── */
+input[type="month"] {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+  outline: none;
+  cursor: pointer;
+}
+input[type="month"]:focus {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+input[type="month"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Profile nav bar (Prev / Save / Next) ── */
+.profile-nav-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+/* ── Entry card view mode ── */
+.entry-view {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.entry-view-info {
+  flex: 1;
+  min-width: 0;
+}
+.entry-view-title {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-view-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 3px;
+}
+.entry-view-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: flex-start;
+}
+.entry-edit-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Skill chip input ── */
+.chip-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  min-height: 42px;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.chip-container:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+.skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 2px 8px 2px 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.skill-chip button,
+.chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 0 0 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  outline: none;
+}
+.skill-chip button:hover,
+.chip-remove:hover {
+  color: var(--danger);
+}
+.chip-input {
+  border: none !important;
+  background: transparent !important;
+  padding: 2px 4px !important;
+  width: auto !important;
+  min-width: 120px;
+  flex: 1;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+.chip-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+/* ── Skill category view row ── */
+.entry-view-skill-row {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.entry-view-skill-row .entry-view-title {
+  white-space: normal;
+  font-size: 13px;
+}
+.entry-view-skill-list {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* ── Bullet row — × beside textarea ── */
+.bullet-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.bullet-row textarea {
+  flex: 1 1 0%;
+  width: 0 !important;
+  min-width: 0;
+  min-height: 42px;
+  resize: vertical;
+}
+
+/* ── Profile main — no bottom padding (footer removed) ── */
+.profile-main {
+  padding-bottom: 32px;
+}
+
+/* ── Currently-here checkbox row ── */
+.current-checkbox {
+  margin-top: 6px;
 }

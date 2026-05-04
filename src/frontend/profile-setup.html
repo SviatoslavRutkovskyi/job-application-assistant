@@ -10,6 +10,13 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/frontend/style.css" />
+    <style>
+      /* Fix 6: prevent white flash before React mounts */
+      #app {
+        background: var(--bg);
+        min-height: 100vh;
+      }
+    </style>
   </head>
   <body style="display: none">
     <div id="app"></div>
@@ -61,16 +68,58 @@
         return res.json();
       }
 
-      // ── Serialization ─────────────────────────────────────────────────────────
-      // _id fields are client-only (React keys). Stripped before API calls.
+      // ── Date helpers ──────────────────────────────────────────────────────────
+      const MONTHS = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
 
+      function toMonthInput(str) {
+        if (!str || str === "Present") return "";
+        const parts = str.trim().split(" ");
+        if (parts.length !== 2) return "";
+        const idx = MONTHS.indexOf(parts[0]);
+        if (idx === -1 || !parts[1]) return "";
+        return `${parts[1]}-${String(idx + 1).padStart(2, "0")}`;
+      }
+
+      function fromMonthInput(val) {
+        if (!val) return "";
+        const [year, month] = val.split("-");
+        return `${MONTHS[parseInt(month, 10) - 1]} ${year}`;
+      }
+
+      function displayRange(start, end, isCurrent) {
+        const s = start ? fromMonthInput(start) : "";
+        const e = isCurrent ? "Present" : end ? fromMonthInput(end) : "";
+        return [s, e].filter(Boolean).join(" – ");
+      }
+
+      // ── Serialization ─────────────────────────────────────────────────────────
       function fromCandidate(data = {}) {
         return {
           profile: data.profile || "",
-          education: (data.education || []).map((e) => ({ ...e, _id: uid() })),
+          education: (data.education || []).map((e) => ({
+            ...e,
+            _id: uid(),
+            start_date: toMonthInput(e.start_date),
+            end_date: e.end_date === "Present" ? "" : toMonthInput(e.end_date),
+            is_current: e.end_date === "Present",
+          })),
           certificates: (data.certificates || []).map((c) => ({
             ...c,
             _id: uid(),
+            date: toMonthInput(c.date),
           })),
           skills: (data.skills || []).map((s) => ({
             _id: uid(),
@@ -83,6 +132,9 @@
           experiences: (data.experiences || []).map((e) => ({
             ...e,
             _id: uid(),
+            is_current: e.end_date === "Present",
+            start_date: toMonthInput(e.start_date),
+            end_date: e.end_date === "Present" ? "" : toMonthInput(e.end_date),
             bullet_points: (e.bullet_points || []).map((b) => ({
               _id: uid(),
               text: b.text || "",
@@ -90,12 +142,12 @@
           })),
           projects: (data.projects || []).map((p) => ({
             name: p.name || "",
-            date: p.date || "",
             _id: uid(),
-            github_links: (p.github_links || []).map((link) => ({
+            date: toMonthInput(p.date),
+            github_links: (p.github_links || []).map((l) => ({
               _id: uid(),
-              name: link.name || "",
-              url: link.url || "",
+              name: l.name || "",
+              url: l.url || "",
             })),
             bullet_points: (p.bullet_points || []).map((b) => ({
               _id: uid(),
@@ -108,22 +160,41 @@
       function toCandidate(state) {
         return {
           profile: state.profile,
-          education: state.education.map(({ _id, ...e }) => e),
-          certificates: state.certificates.map(({ _id, ...c }) => c),
+          education: state.education.map(
+            ({ _id, is_current, start_date, end_date, ...e }) => ({
+              ...e,
+              start_date: fromMonthInput(start_date),
+              end_date: is_current ? "Present" : fromMonthInput(end_date),
+            }),
+          ),
+          certificates: state.certificates.map(({ _id, date, ...c }) => ({
+            ...c,
+            date: fromMonthInput(date),
+          })),
           skills: state.skills.map(({ _id, name, skills }) => ({
             name,
             skills: skills.map(({ _id, text }) => ({ text })),
           })),
           experiences: state.experiences.map(
-            ({ _id, bullet_points, ...e }) => ({
+            ({
+              _id,
+              is_current,
+              start_date,
+              end_date,
+              bullet_points,
+              ...e
+            }) => ({
               ...e,
+              start_date: fromMonthInput(start_date),
+              end_date: is_current ? "Present" : fromMonthInput(end_date),
               bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
             }),
           ),
           projects: state.projects.map(
-            ({ _id, github_links, bullet_points, ...p }) => ({
+            ({ _id, date, github_links, bullet_points, ...p }) => ({
               ...p,
-              github_links: github_links.map(({ _id, ...link }) => link),
+              date: fromMonthInput(date),
+              github_links: github_links.map(({ _id, ...l }) => l),
               bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
             }),
           ),
@@ -142,24 +213,54 @@
         );
       }
 
-      function EntryCard({ title, onDelete, children }) {
+      // Fix 5: EntryCard is now controlled — parent owns which entry is editing.
+      // editingId / onEdit(id) / onDone() passed from section.
+      function EntryCard({
+        id,
+        editingId,
+        onEdit,
+        onDone,
+        viewContent,
+        onDelete,
+        children,
+      }) {
+        const isEditing = editingId === id;
         return (
           <div className="entry-card">
-            <div className="entry-card-header">
-              <span className="entry-card-title">{title}</span>
-              <button
-                className="btn btn-sm btn-icon"
-                onClick={onDelete}
-                title="Remove"
-              >
-                ×
-              </button>
-            </div>
-            {children}
+            {isEditing ? (
+              <div>
+                {children}
+                <div className="entry-edit-footer">
+                  <button className="btn btn-sm" onClick={onDelete}>
+                    Remove
+                  </button>
+                  <button className="btn btn-sm btn-primary" onClick={onDone}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="entry-view">
+                <div className="entry-view-info">{viewContent}</div>
+                <div className="entry-view-actions">
+                  <button className="btn btn-sm" onClick={() => onEdit(id)}>
+                    Edit
+                  </button>
+                  <button
+                    className="btn btn-sm btn-icon"
+                    onClick={onDelete}
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
 
+      // Fix 4 (bullet ×): flex row — textarea takes flex:1, button stays inline
       function BulletList({ bullets, onAdd, onRemove, onUpdate }) {
         return (
           <Fg label="Bullet Points">
@@ -170,21 +271,122 @@
                     rows={2}
                     value={b.text}
                     onChange={(e) => onUpdate(b._id, e.target.value)}
-                    placeholder={`Bullet ${i + 1}...`}
+                    placeholder={`Achievement or responsibility ${i + 1}...`}
                   />
                   <button
                     className="btn btn-sm btn-icon"
                     onClick={() => onRemove(b._id)}
+                    title="Remove"
                   >
                     ×
                   </button>
                 </div>
               ))}
-              <button className="btn btn-sm" onClick={onAdd}>
+              <button
+                className="btn btn-sm"
+                style={{ alignSelf: "flex-start" }}
+                onClick={onAdd}
+              >
                 + Add Bullet
               </button>
             </div>
           </Fg>
+        );
+      }
+
+      // Fix 3: Backspace-to-delete removed entirely. Only × removes chips.
+      function ChipInput({ skills, onChange }) {
+        const [input, setInput] = useState("");
+        const addSkill = () => {
+          const val = input.trim().replace(/,$/, "");
+          if (!val) return;
+          if (!skills.find((s) => s.text.toLowerCase() === val.toLowerCase())) {
+            onChange([...skills, { _id: uid(), text: val }]);
+          }
+          setInput("");
+        };
+        return (
+          <div
+            className="chip-container"
+            onClick={(e) =>
+              e.currentTarget.querySelector(".chip-input")?.focus()
+            }
+          >
+            {skills.map((sk) => (
+              <span key={sk._id} className="skill-chip">
+                {sk.text}
+                <button
+                  type="button"
+                  className="chip-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(skills.filter((s) => s._id !== sk._id));
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <input
+              className="chip-input"
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === ",") {
+                  e.preventDefault();
+                  addSkill();
+                }
+              }}
+              onBlur={addSkill}
+              placeholder={
+                skills.length === 0 ? "Type a skill, press Enter to add..." : ""
+              }
+            />
+          </div>
+        );
+      }
+
+      function EndDateField({
+        value,
+        isCurrent,
+        onDateChange,
+        onCurrentChange,
+        label = "End Date",
+      }) {
+        return (
+          <Fg label={label}>
+            <input
+              type="month"
+              value={value || ""}
+              onChange={(e) => onDateChange(e.target.value)}
+              disabled={isCurrent}
+            />
+            <label className="checkbox-label current-checkbox">
+              <input
+                type="checkbox"
+                checked={isCurrent || false}
+                onChange={(e) => onCurrentChange(e.target.checked)}
+              />
+              Present
+            </label>
+          </Fg>
+        );
+      }
+
+      // Fix 2: Skill view — "CategoryName: skill1, skill2, skill3"
+      function SkillViewRow({ name, skills }) {
+        return (
+          <div className="entry-view-skill-row">
+            <span className="entry-view-title">
+              {name || "Unnamed category"}
+            </span>
+            {skills.length > 0 && (
+              <span className="entry-view-skill-list">
+                : {skills.map((s) => s.text).join(", ")}
+              </span>
+            )}
+          </div>
         );
       }
 
@@ -206,7 +408,7 @@
                       type="text"
                       value={data.name}
                       onChange={set("name")}
-                      placeholder="Your Name"
+                      placeholder="Full Name"
                     />
                   </Fg>
                   <Fg label="Location">
@@ -224,7 +426,7 @@
                       type="text"
                       value={data.email || ""}
                       onChange={set("email")}
-                      placeholder="you@email.com"
+                      placeholder="your@email.com"
                     />
                   </Fg>
                   <Fg label="Phone">
@@ -242,7 +444,7 @@
                       type="text"
                       value={data.linkedin_url || ""}
                       onChange={set("linkedin_url")}
-                      placeholder="https://linkedin.com/in/..."
+                      placeholder="https://linkedin.com/in/handle"
                     />
                   </Fg>
                   <Fg
@@ -253,7 +455,7 @@
                       type="text"
                       value={data.linkedin_label || ""}
                       onChange={set("linkedin_label")}
-                      placeholder="linkedin.com/in/yourname"
+                      placeholder="linkedin.com/in/handle"
                     />
                   </Fg>
                 </div>
@@ -268,7 +470,7 @@
           <div>
             <p className="section-desc">
               A concise professional summary at the top of your resume. The AI
-              rewrites this to match each role — write who you are and what you
+              rewrites this for each role — write who you are and what you
               bring.
             </p>
             <div className="card">
@@ -280,7 +482,7 @@
                     onChange={(e) =>
                       onChange({ ...data, profile: e.target.value })
                     }
-                    placeholder="Computer science graduate with experience in backend engineering and AI systems..."
+                    placeholder="Software engineer with X years of experience in..."
                   />
                 </Fg>
               </div>
@@ -290,26 +492,35 @@
       }
 
       function EducationSection({ data, onChange }) {
-        const add = () =>
+        const [editingId, setEditingId] = useState(null);
+
+        const add = () => {
+          const newId = uid();
           onChange({
             ...data,
             education: [
               ...data.education,
               {
-                _id: uid(),
+                _id: newId,
                 institution: "",
                 start_date: "",
                 end_date: "",
+                is_current: false,
                 degree_line: "",
+                gpa: null,
                 location: "",
               },
             ],
           });
-        const remove = (id) =>
+          setEditingId(newId);
+        };
+        const remove = (id) => {
           onChange({
             ...data,
             education: data.education.filter((e) => e._id !== id),
           });
+          if (editingId === id) setEditingId(null);
+        };
         const update = (id, field, val) =>
           onChange({
             ...data,
@@ -327,11 +538,33 @@
             {data.education.length === 0 && (
               <div className="empty-entries">No education entries yet.</div>
             )}
-            {data.education.map((edu, i) => (
+            {data.education.map((edu) => (
               <EntryCard
                 key={edu._id}
-                title={edu.institution || `Education ${i + 1}`}
+                id={edu._id}
+                editingId={editingId}
+                onEdit={setEditingId}
+                onDone={() => setEditingId(null)}
                 onDelete={() => remove(edu._id)}
+                viewContent={
+                  <div>
+                    <div className="entry-view-title">
+                      {edu.institution || "Unnamed institution"}
+                    </div>
+                    <div className="entry-view-sub">
+                      {edu.degree_line}
+                      {edu.gpa ? ` | GPA: ${edu.gpa}` : ""}
+                    </div>
+                    <div className="entry-view-sub">
+                      {displayRange(
+                        edu.start_date,
+                        edu.end_date,
+                        edu.is_current,
+                      )}
+                      {edu.location ? ` · ${edu.location}` : ""}
+                    </div>
+                  </div>
+                }
               >
                 <div className="form-row">
                   <Fg label="Institution">
@@ -341,7 +574,7 @@
                       onChange={(e) =>
                         update(edu._id, "institution", e.target.value)
                       }
-                      placeholder="University of Washington Tacoma"
+                      placeholder="University Name"
                     />
                   </Fg>
                   <Fg label="Location">
@@ -351,31 +584,26 @@
                       onChange={(e) =>
                         update(edu._id, "location", e.target.value)
                       }
-                      placeholder="Tacoma, WA"
+                      placeholder="City, ST"
                     />
                   </Fg>
                 </div>
                 <div className="form-row">
                   <Fg label="Start Date">
                     <input
-                      type="text"
+                      type="month"
                       value={edu.start_date}
                       onChange={(e) =>
                         update(edu._id, "start_date", e.target.value)
                       }
-                      placeholder="Sep 2022"
                     />
                   </Fg>
-                  <Fg label="End Date">
-                    <input
-                      type="text"
-                      value={edu.end_date}
-                      onChange={(e) =>
-                        update(edu._id, "end_date", e.target.value)
-                      }
-                      placeholder="Mar 2025"
-                    />
-                  </Fg>
+                  <EndDateField
+                    value={edu.end_date}
+                    isCurrent={edu.is_current}
+                    onDateChange={(v) => update(edu._id, "end_date", v)}
+                    onCurrentChange={(v) => update(edu._id, "is_current", v)}
+                  />
                 </div>
                 <div className="form-row">
                   <Fg label="Degree">
@@ -408,226 +636,36 @@
         );
       }
 
-      function CertSection({ data, onChange }) {
-        const add = () =>
-          onChange({
-            ...data,
-            certificates: [
-              ...data.certificates,
-              { _id: uid(), name: "", issuer: "", date: "", details: "" },
-            ],
-          });
-        const remove = (id) =>
-          onChange({
-            ...data,
-            certificates: data.certificates.filter((c) => c._id !== id),
-          });
-        const update = (id, field, val) =>
-          onChange({
-            ...data,
-            certificates: data.certificates.map((c) =>
-              c._id === id ? { ...c, [field]: val } : c,
-            ),
-          });
-
-        return (
-          <div>
-            <p className="section-desc">
-              Professional certifications and licenses.
-            </p>
-            {data.certificates.length === 0 && (
-              <div className="empty-entries">No certificates yet.</div>
-            )}
-            {data.certificates.map((cert, i) => (
-              <EntryCard
-                key={cert._id}
-                title={cert.name || `Certificate ${i + 1}`}
-                onDelete={() => remove(cert._id)}
-              >
-                <div className="form-row">
-                  <Fg label="Name">
-                    <input
-                      type="text"
-                      value={cert.name}
-                      onChange={(e) => update(cert._id, "name", e.target.value)}
-                      placeholder="AZ-900: Azure Fundamentals"
-                    />
-                  </Fg>
-                  <Fg label="Issuer">
-                    <input
-                      type="text"
-                      value={cert.issuer || ""}
-                      onChange={(e) =>
-                        update(cert._id, "issuer", e.target.value)
-                      }
-                      placeholder="Microsoft"
-                    />
-                  </Fg>
-                </div>
-                <div className="form-row">
-                  <Fg label="Date">
-                    <input
-                      type="text"
-                      value={cert.date || ""}
-                      onChange={(e) => update(cert._id, "date", e.target.value)}
-                      placeholder="May 2025"
-                    />
-                  </Fg>
-                  <Fg
-                    label="Details"
-                    hint="Optional — score, credential ID, etc."
-                  >
-                    <input
-                      type="text"
-                      value={cert.details || ""}
-                      onChange={(e) =>
-                        update(cert._id, "details", e.target.value)
-                      }
-                      placeholder="Score: 900/1000"
-                    />
-                  </Fg>
-                </div>
-              </EntryCard>
-            ))}
-            <button className="btn btn-sm" onClick={add}>
-              + Add Certificate
-            </button>
-          </div>
-        );
-      }
-
-      function SkillsSection({ data, onChange }) {
-        const addCat = () =>
-          onChange({
-            ...data,
-            skills: [...data.skills, { _id: uid(), name: "", skills: [] }],
-          });
-        const removeCat = (id) =>
-          onChange({
-            ...data,
-            skills: data.skills.filter((s) => s._id !== id),
-          });
-        const updateName = (id, name) =>
-          onChange({
-            ...data,
-            skills: data.skills.map((s) => (s._id === id ? { ...s, name } : s)),
-          });
-        const addSkill = (catId) =>
-          onChange({
-            ...data,
-            skills: data.skills.map((s) =>
-              s._id === catId
-                ? { ...s, skills: [...s.skills, { _id: uid(), text: "" }] }
-                : s,
-            ),
-          });
-        const removeSkill = (catId, skillId) =>
-          onChange({
-            ...data,
-            skills: data.skills.map((s) =>
-              s._id === catId
-                ? { ...s, skills: s.skills.filter((sk) => sk._id !== skillId) }
-                : s,
-            ),
-          });
-        const updateSkill = (catId, skillId, text) =>
-          onChange({
-            ...data,
-            skills: data.skills.map((s) =>
-              s._id === catId
-                ? {
-                    ...s,
-                    skills: s.skills.map((sk) =>
-                      sk._id === skillId ? { ...sk, text } : sk,
-                    ),
-                  }
-                : s,
-            ),
-          });
-
-        return (
-          <div>
-            <p className="section-desc">
-              Organize skills into categories — each becomes a row on your
-              resume. Example categories: Languages, Frameworks, Cloud &amp;
-              DevOps, Tools.
-            </p>
-            {data.skills.length === 0 && (
-              <div className="empty-entries">No skill categories yet.</div>
-            )}
-            {data.skills.map((cat, i) => (
-              <EntryCard
-                key={cat._id}
-                title={cat.name || `Category ${i + 1}`}
-                onDelete={() => removeCat(cat._id)}
-              >
-                <Fg label="Category Name">
-                  <input
-                    type="text"
-                    value={cat.name}
-                    onChange={(e) => updateName(cat._id, e.target.value)}
-                    placeholder="Languages"
-                  />
-                </Fg>
-                <Fg label="Skills">
-                  <div className="skill-rows">
-                    {cat.skills.map((sk) => (
-                      <div key={sk._id} className="skill-row">
-                        <input
-                          type="text"
-                          value={sk.text}
-                          onChange={(e) =>
-                            updateSkill(cat._id, sk._id, e.target.value)
-                          }
-                          placeholder="Java"
-                        />
-                        <button
-                          className="btn btn-sm btn-icon"
-                          onClick={() => removeSkill(cat._id, sk._id)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => addSkill(cat._id)}
-                    >
-                      + Add Skill
-                    </button>
-                  </div>
-                </Fg>
-              </EntryCard>
-            ))}
-            <button className="btn btn-sm" onClick={addCat}>
-              + Add Category
-            </button>
-          </div>
-        );
-      }
-
       function ExpSection({ data, onChange }) {
-        const addExp = () =>
+        const [editingId, setEditingId] = useState(null);
+
+        const addExp = () => {
+          const newId = uid();
           onChange({
             ...data,
             experiences: [
               ...data.experiences,
               {
-                _id: uid(),
+                _id: newId,
                 company_name: "",
                 job_title: "",
                 start_date: "",
                 end_date: "",
+                is_current: false,
                 location: "",
                 bullet_points: [],
               },
             ],
           });
-        const removeExp = (id) =>
+          setEditingId(newId);
+        };
+        const removeExp = (id) => {
           onChange({
             ...data,
             experiences: data.experiences.filter((e) => e._id !== id),
           });
+          if (editingId === id) setEditingId(null);
+        };
         const updateExp = (id, field, val) =>
           onChange({
             ...data,
@@ -686,15 +724,36 @@
             {data.experiences.length === 0 && (
               <div className="empty-entries">No experience entries yet.</div>
             )}
-            {data.experiences.map((exp, i) => (
+            {data.experiences.map((exp) => (
               <EntryCard
                 key={exp._id}
-                title={
-                  exp.company_name
-                    ? `${exp.company_name}${exp.job_title ? " — " + exp.job_title : ""}`
-                    : `Experience ${i + 1}`
-                }
+                id={exp._id}
+                editingId={editingId}
+                onEdit={setEditingId}
+                onDone={() => setEditingId(null)}
                 onDelete={() => removeExp(exp._id)}
+                viewContent={
+                  <div>
+                    <div className="entry-view-title">
+                      {exp.company_name || "Unnamed company"}
+                      {exp.job_title ? ` — ${exp.job_title}` : ""}
+                    </div>
+                    <div className="entry-view-sub">
+                      {displayRange(
+                        exp.start_date,
+                        exp.end_date,
+                        exp.is_current,
+                      )}
+                      {exp.location ? ` · ${exp.location}` : ""}
+                    </div>
+                    {exp.bullet_points.length > 0 && (
+                      <div className="entry-view-sub">
+                        {exp.bullet_points.length} bullet
+                        {exp.bullet_points.length !== 1 ? "s" : ""}
+                      </div>
+                    )}
+                  </div>
+                }
               >
                 <div className="form-row">
                   <Fg label="Company">
@@ -704,7 +763,7 @@
                       onChange={(e) =>
                         updateExp(exp._id, "company_name", e.target.value)
                       }
-                      placeholder="Fundae"
+                      placeholder="Company Name"
                     />
                   </Fg>
                   <Fg label="Job Title">
@@ -714,31 +773,26 @@
                       onChange={(e) =>
                         updateExp(exp._id, "job_title", e.target.value)
                       }
-                      placeholder="Software Engineering Intern"
+                      placeholder="Software Engineer"
                     />
                   </Fg>
                 </div>
                 <div className="form-row">
                   <Fg label="Start Date">
                     <input
-                      type="text"
+                      type="month"
                       value={exp.start_date}
                       onChange={(e) =>
                         updateExp(exp._id, "start_date", e.target.value)
                       }
-                      placeholder="Jun 2024"
                     />
                   </Fg>
-                  <Fg label="End Date">
-                    <input
-                      type="text"
-                      value={exp.end_date}
-                      onChange={(e) =>
-                        updateExp(exp._id, "end_date", e.target.value)
-                      }
-                      placeholder="Sep 2024"
-                    />
-                  </Fg>
+                  <EndDateField
+                    value={exp.end_date}
+                    isCurrent={exp.is_current}
+                    onDateChange={(v) => updateExp(exp._id, "end_date", v)}
+                    onCurrentChange={(v) => updateExp(exp._id, "is_current", v)}
+                  />
                 </div>
                 <Fg label="Location">
                   <input
@@ -747,7 +801,7 @@
                     onChange={(e) =>
                       updateExp(exp._id, "location", e.target.value)
                     }
-                    placeholder="Remote"
+                    placeholder="City, ST or Remote"
                   />
                 </Fg>
                 <BulletList
@@ -766,13 +820,16 @@
       }
 
       function ProjectsSection({ data, onChange }) {
-        const addProject = () =>
+        const [editingId, setEditingId] = useState(null);
+
+        const addProject = () => {
+          const newId = uid();
           onChange({
             ...data,
             projects: [
               ...data.projects,
               {
-                _id: uid(),
+                _id: newId,
                 name: "",
                 date: "",
                 github_links: [],
@@ -780,11 +837,15 @@
               },
             ],
           });
-        const removeProject = (id) =>
+          setEditingId(newId);
+        };
+        const removeProject = (id) => {
           onChange({
             ...data,
             projects: data.projects.filter((p) => p._id !== id),
           });
+          if (editingId === id) setEditingId(null);
+        };
         const updateProject = (id, field, val) =>
           onChange({
             ...data,
@@ -807,21 +868,19 @@
                 : p,
             ),
           });
-        const removeLink = (projId, linkId) =>
+        const removeLink = (projId, lid) =>
           onChange({
             ...data,
             projects: data.projects.map((p) =>
               p._id === projId
                 ? {
                     ...p,
-                    github_links: p.github_links.filter(
-                      (l) => l._id !== linkId,
-                    ),
+                    github_links: p.github_links.filter((l) => l._id !== lid),
                   }
                 : p,
             ),
           });
-        const updateLink = (projId, linkId, field, val) =>
+        const updateLink = (projId, lid, field, val) =>
           onChange({
             ...data,
             projects: data.projects.map((p) =>
@@ -829,7 +888,7 @@
                 ? {
                     ...p,
                     github_links: p.github_links.map((l) =>
-                      l._id === linkId ? { ...l, [field]: val } : l,
+                      l._id === lid ? { ...l, [field]: val } : l,
                     ),
                   }
                 : p,
@@ -885,11 +944,27 @@
             {data.projects.length === 0 && (
               <div className="empty-entries">No projects yet.</div>
             )}
-            {data.projects.map((proj, i) => (
+            {data.projects.map((proj) => (
               <EntryCard
                 key={proj._id}
-                title={proj.name || `Project ${i + 1}`}
+                id={proj._id}
+                editingId={editingId}
+                onEdit={setEditingId}
+                onDone={() => setEditingId(null)}
                 onDelete={() => removeProject(proj._id)}
+                viewContent={
+                  <div>
+                    <div className="entry-view-title">
+                      {proj.name || "Unnamed project"}
+                    </div>
+                    <div className="entry-view-sub">
+                      {proj.date ? fromMonthInput(proj.date) : ""}
+                      {proj.bullet_points.length > 0
+                        ? ` · ${proj.bullet_points.length} bullet${proj.bullet_points.length !== 1 ? "s" : ""}`
+                        : ""}
+                    </div>
+                  </div>
+                }
               >
                 <div className="form-row">
                   <Fg label="Project Name">
@@ -899,17 +974,16 @@
                       onChange={(e) =>
                         updateProject(proj._id, "name", e.target.value)
                       }
-                      placeholder="Resume & Cover Letter Assistant"
+                      placeholder="Project Name"
                     />
                   </Fg>
                   <Fg label="Date">
                     <input
-                      type="text"
+                      type="month"
                       value={proj.date}
                       onChange={(e) =>
                         updateProject(proj._id, "date", e.target.value)
                       }
-                      placeholder="Jan 2025 — Present"
                     />
                   </Fg>
                 </div>
@@ -977,13 +1051,192 @@
         );
       }
 
-      function SummarySection({ data, onChange }) {
-        const add = () =>
+      function SkillsSection({ data, onChange }) {
+        const [editingId, setEditingId] = useState(null);
+
+        const addCat = () => {
+          const newId = uid();
           onChange({
-            topics: [...data.topics, { _id: uid(), topic: "", response: "" }],
+            ...data,
+            skills: [...data.skills, { _id: newId, name: "", skills: [] }],
           });
-        const remove = (id) =>
+          setEditingId(newId);
+        };
+        const removeCat = (id) => {
+          onChange({
+            ...data,
+            skills: data.skills.filter((s) => s._id !== id),
+          });
+          if (editingId === id) setEditingId(null);
+        };
+        const updateName = (id, name) =>
+          onChange({
+            ...data,
+            skills: data.skills.map((s) => (s._id === id ? { ...s, name } : s)),
+          });
+        const updateSkills = (catId, skills) =>
+          onChange({
+            ...data,
+            skills: data.skills.map((s) =>
+              s._id === catId ? { ...s, skills } : s,
+            ),
+          });
+
+        return (
+          <div>
+            <p className="section-desc">
+              Organize skills into categories — each becomes a row on your
+              resume. Type a skill and press Enter or comma to add it.
+            </p>
+            {data.skills.length === 0 && (
+              <div className="empty-entries">No skill categories yet.</div>
+            )}
+            {data.skills.map((cat) => (
+              <EntryCard
+                key={cat._id}
+                id={cat._id}
+                editingId={editingId}
+                onEdit={setEditingId}
+                onDone={() => setEditingId(null)}
+                onDelete={() => removeCat(cat._id)}
+                viewContent={
+                  <SkillViewRow name={cat.name} skills={cat.skills} />
+                }
+              >
+                <Fg label="Category Name">
+                  <input
+                    type="text"
+                    value={cat.name}
+                    onChange={(e) => updateName(cat._id, e.target.value)}
+                    placeholder="Languages"
+                  />
+                </Fg>
+                <Fg
+                  label="Skills"
+                  hint="Type a skill and press Enter or comma to add"
+                >
+                  <ChipInput
+                    skills={cat.skills}
+                    onChange={(skills) => updateSkills(cat._id, skills)}
+                  />
+                </Fg>
+              </EntryCard>
+            ))}
+            <button className="btn btn-sm" onClick={addCat}>
+              + Add Category
+            </button>
+          </div>
+        );
+      }
+
+      function CertSection({ data, onChange }) {
+        const [editingId, setEditingId] = useState(null);
+
+        const add = () => {
+          const newId = uid();
+          onChange({
+            ...data,
+            certificates: [
+              ...data.certificates,
+              { _id: newId, name: "", issuer: "", date: "" },
+            ],
+          });
+          setEditingId(newId);
+        };
+        const remove = (id) => {
+          onChange({
+            ...data,
+            certificates: data.certificates.filter((c) => c._id !== id),
+          });
+          if (editingId === id) setEditingId(null);
+        };
+        const update = (id, field, val) =>
+          onChange({
+            ...data,
+            certificates: data.certificates.map((c) =>
+              c._id === id ? { ...c, [field]: val } : c,
+            ),
+          });
+
+        return (
+          <div>
+            <p className="section-desc">
+              Professional certifications and licenses.
+            </p>
+            {data.certificates.length === 0 && (
+              <div className="empty-entries">No certificates yet.</div>
+            )}
+            {data.certificates.map((cert) => (
+              <EntryCard
+                key={cert._id}
+                id={cert._id}
+                editingId={editingId}
+                onEdit={setEditingId}
+                onDone={() => setEditingId(null)}
+                onDelete={() => remove(cert._id)}
+                viewContent={
+                  <div>
+                    <div className="entry-view-title">
+                      {cert.name || "Unnamed certificate"}
+                    </div>
+                    <div className="entry-view-sub">
+                      {[cert.issuer, cert.date ? fromMonthInput(cert.date) : ""]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                  </div>
+                }
+              >
+                <div className="form-row">
+                  <Fg label="Certificate Name">
+                    <input
+                      type="text"
+                      value={cert.name}
+                      onChange={(e) => update(cert._id, "name", e.target.value)}
+                      placeholder="Certification Name"
+                    />
+                  </Fg>
+                  <Fg label="Issuer">
+                    <input
+                      type="text"
+                      value={cert.issuer || ""}
+                      onChange={(e) =>
+                        update(cert._id, "issuer", e.target.value)
+                      }
+                      placeholder="Issuing Organization"
+                    />
+                  </Fg>
+                </div>
+                <Fg label="Date Earned">
+                  <input
+                    type="month"
+                    value={cert.date || ""}
+                    onChange={(e) => update(cert._id, "date", e.target.value)}
+                  />
+                </Fg>
+              </EntryCard>
+            ))}
+            <button className="btn btn-sm" onClick={add}>
+              + Add Certificate
+            </button>
+          </div>
+        );
+      }
+
+      function SummarySection({ data, onChange }) {
+        const [editingId, setEditingId] = useState(null);
+
+        const add = () => {
+          const newId = uid();
+          onChange({
+            topics: [...data.topics, { _id: newId, topic: "", response: "" }],
+          });
+          setEditingId(newId);
+        };
+        const remove = (id) => {
           onChange({ topics: data.topics.filter((t) => t._id !== id) });
+          if (editingId === id) setEditingId(null);
+        };
         const update = (id, field, val) =>
           onChange({
             topics: data.topics.map((t) =>
@@ -995,25 +1248,41 @@
           <div>
             <p className="section-desc">
               Narrative context used when answering open-ended application
-              questions. Write responses as you'd say them — the AI answers in
-              your voice. Suggested topics: origin, career_direction, why_ai,
-              differentiators, problem_solving, weaknesses.
+              questions. Write in first person, honest and specific — the AI
+              answers in your voice. Suggested topics: origin, career_direction,
+              why_this_field, strengths, problem_solving, weaknesses.
             </p>
             {data.topics.length === 0 && (
               <div className="empty-entries">No topics yet.</div>
             )}
-            {data.topics.map((t, i) => (
+            {data.topics.map((t) => (
               <EntryCard
                 key={t._id}
-                title={t.topic || `Topic ${i + 1}`}
+                id={t._id}
+                editingId={editingId}
+                onEdit={setEditingId}
+                onDone={() => setEditingId(null)}
                 onDelete={() => remove(t._id)}
+                viewContent={
+                  <div>
+                    <div className="entry-view-title">
+                      {t.topic || "Unnamed topic"}
+                    </div>
+                    {t.response && (
+                      <div className="entry-view-sub">
+                        {t.response.slice(0, 120)}
+                        {t.response.length > 120 ? "…" : ""}
+                      </div>
+                    )}
+                  </div>
+                }
               >
-                <Fg label="Topic Name">
+                <Fg label="Topic">
                   <input
                     type="text"
                     value={t.topic}
                     onChange={(e) => update(t._id, "topic", e.target.value)}
-                    placeholder="career_direction"
+                    placeholder="e.g. career_direction"
                   />
                 </Fg>
                 <Fg label="Your Response">
@@ -1034,30 +1303,28 @@
       }
 
       // ── Tab config ────────────────────────────────────────────────────────────
-
       const TAB_ORDER = [
         "personal",
         "profile",
         "education",
-        "certificates",
-        "skills",
         "experience",
         "projects",
+        "skills",
+        "certificates",
         "summary",
       ];
       const TAB_LABELS = {
         personal: "Personal",
         profile: "Profile",
         education: "Education",
-        certificates: "Certificates",
-        skills: "Skills",
         experience: "Experience",
         projects: "Projects",
-        summary: "Summary",
+        skills: "Skills",
+        certificates: "Certificates",
+        summary: "Q&A",
       };
 
       // ── Main App ──────────────────────────────────────────────────────────────
-
       const BLANK_PERSONAL = {
         name: "",
         location: "",
@@ -1084,12 +1351,10 @@
         const [loading, setLoading] = useState(true);
         const [saving, setSaving] = useState(false);
 
-        // Ref keeps save() from closing over stale state
         const snap = useRef({ personal, candidate, summary, tab });
         useEffect(() => {
           snap.current = { personal, candidate, summary, tab };
         }, [personal, candidate, summary, tab]);
-
         useEffect(() => {
           init();
         }, []);
@@ -1147,29 +1412,33 @@
         }
 
         function switchTab(newTab) {
-          save().catch(console.error); // optimistic: switch immediately, save in background
+          save().catch(console.error);
           setTab(newTab);
         }
 
-        async function saveAndContinue() {
+        async function goNext() {
           await save();
           const idx = TAB_ORDER.indexOf(tab);
-          if (idx < TAB_ORDER.length - 1) {
-            setTab(TAB_ORDER[idx + 1]);
-          } else {
-            window.location.href = "/";
-          }
+          if (idx < TAB_ORDER.length - 1) setTab(TAB_ORDER[idx + 1]);
+          else window.location.href = "/";
+        }
+
+        async function goPrev() {
+          await save();
+          const idx = TAB_ORDER.indexOf(tab);
+          if (idx > 0) setTab(TAB_ORDER[idx - 1]);
         }
 
         function badge(t) {
-          const n = {
+          const counts = {
             education: candidate.education.length,
             certificates: candidate.certificates.length,
             skills: candidate.skills.length,
             experience: candidate.experiences.length,
             projects: candidate.projects.length,
             summary: summary.topics.length,
-          }[t];
+          };
+          const n = counts[t];
           return n ? <span className="tab-badge">{n}</span> : null;
         }
 
@@ -1185,20 +1454,24 @@
               return (
                 <EducationSection data={candidate} onChange={setCandidate} />
               );
-            case "certificates":
-              return <CertSection data={candidate} onChange={setCandidate} />;
-            case "skills":
-              return <SkillsSection data={candidate} onChange={setCandidate} />;
             case "experience":
               return <ExpSection data={candidate} onChange={setCandidate} />;
             case "projects":
               return (
                 <ProjectsSection data={candidate} onChange={setCandidate} />
               );
+            case "skills":
+              return <SkillsSection data={candidate} onChange={setCandidate} />;
+            case "certificates":
+              return <CertSection data={candidate} onChange={setCandidate} />;
             case "summary":
               return <SummarySection data={summary} onChange={setSummary} />;
           }
         }
+
+        const tabIdx = TAB_ORDER.indexOf(tab);
+        const isFirst = tabIdx === 0;
+        const isLast = tabIdx === TAB_ORDER.length - 1;
 
         return (
           <>
@@ -1232,36 +1505,38 @@
             </div>
 
             <main className="profile-main">
+              <div className="profile-nav-bar">
+                {!isFirst && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={goPrev}
+                    disabled={saving || loading}
+                  >
+                    ← Prev
+                  </button>
+                )}
+                <button
+                  className="btn btn-sm"
+                  onClick={save}
+                  disabled={saving || loading}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={goNext}
+                  disabled={saving || loading}
+                >
+                  {isLast ? "Finish" : "Next →"}
+                </button>
+              </div>
+
               {loading ? (
                 <div className="empty-state">Loading profile...</div>
               ) : (
                 renderSection()
               )}
             </main>
-
-            <div className="profile-footer">
-              <span className="saving-indicator">
-                {saving ? "Saving..." : ""}
-              </span>
-              <div className="profile-footer-right">
-                <button
-                  className="btn"
-                  onClick={save}
-                  disabled={saving || loading}
-                >
-                  Save
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={saveAndContinue}
-                  disabled={saving || loading}
-                >
-                  {tab === TAB_ORDER[TAB_ORDER.length - 1]
-                    ? "Save & Finish"
-                    : "Save & Continue →"}
-                </button>
-              </div>
-            </div>
           </>
         );
       }
