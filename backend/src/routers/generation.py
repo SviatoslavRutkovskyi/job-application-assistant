@@ -113,6 +113,8 @@ def download_resume(
     user_id: str = Depends(get_current_user),
 ):
     """Proxies PDF from Blob Storage to the client."""
+    if not blob_name.startswith(f"{user_id}/"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     try:
         pdf_bytes, filename = get_services(request).blob.download(blob_name)
         return Response(
