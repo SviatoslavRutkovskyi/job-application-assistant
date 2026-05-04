@@ -7,11 +7,12 @@ from api_models import (
     AnswerQuestionResponse,
     CoverLetterPdfBody,
     CoverLetterResponse,
+    ExportResumeResponse,
     JobContextBody,
     TailorResumeBody,
     TailorResumeResponse,
 )
-from dependencies import get_current_user, get_services, _load_user_profile
+from dependencies import get_current_user, get_services, _load_user_profile, _load_layout
 from utils import sanitize_filename
 
 logger = logging.getLogger(__name__)
@@ -75,8 +76,9 @@ def tailor_resume(
     services = get_services(request)
     candidate, user_profile, _ = _load_user_profile(services, user_id)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
+    layout = _load_layout(services, user_id)
     result = services.resume_builder.tailor_resume(
-        job_desc, body.resume_feedback, body.last_resume_json, candidate, user_profile, user_id
+        job_desc, body.resume_feedback, body.last_resume_json, candidate, user_profile, user_id, layout
     )
     if result is None:
         raise HTTPException(
@@ -85,6 +87,23 @@ def tailor_resume(
         )
     blob_name, resume_json = result
     return TailorResumeResponse(last_resume_json=resume_json, pdf_url=blob_name)
+
+
+@router.post("/resume/export", response_model=ExportResumeResponse)
+def export_resume(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    services = get_services(request)
+    candidate, user_profile, _ = _load_user_profile(services, user_id)
+    layout = _load_layout(services, user_id)
+    blob_name = services.resume_builder.export_full_resume(candidate, user_profile, user_id, layout)
+    if blob_name is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Full resume export failed.",
+        )
+    return ExportResumeResponse(pdf_url=blob_name)
 
 
 @router.get("/resume/download/{blob_name:path}")

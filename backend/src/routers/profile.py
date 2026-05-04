@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api_models import ProfileExistsResponse, ProfileResponse
-from dependencies import get_current_user, get_services, _load_user_profile
+from core.core_models import ResumeLayoutConfig
+from dependencies import get_current_user, get_services, _load_user_profile, _load_layout
 from models import CandidateProfile, PersonalSummary, UserProfile
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
@@ -62,3 +63,19 @@ def update_candidate(
     user_id: str = Depends(get_current_user),
 ):
     get_services(request).user_data.save(user_id, "candidate.json", body.model_dump())
+
+
+@router.get("/profile/layout", response_model=ResumeLayoutConfig)
+def get_layout(request: Request, user_id: str = Depends(get_current_user)):
+    services = get_services(request)
+    layout = _load_layout(services, user_id)
+    return layout or services.default_layout
+
+
+@router.put("/profile/layout", status_code=status.HTTP_204_NO_CONTENT)
+def update_layout(
+    body: ResumeLayoutConfig,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    get_services(request).user_data.save(user_id, "layout.json", body.model_dump())

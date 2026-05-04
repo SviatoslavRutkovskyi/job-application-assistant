@@ -11,6 +11,7 @@ from core.cover_letter import CoverLetter
 from core.job_processor import JobProcessor
 from core.resume import Resume
 from core.question_answerer import QuestionAnswerer
+from core.core_models import ResumeLayoutConfig
 from infrastructure.ai_client import AIClient
 from infrastructure.blob_client import BlobClient
 from infrastructure.user_data_client import UserDataClient
@@ -135,6 +136,7 @@ class ApplicationServices:
         )
         self.question_answerer = QuestionAnswerer(ai=ai)
         self.job_processor = JobProcessor(ai=ai)
+        self.default_layout = self.resume_builder.latex_generator.layout
 
     def get_or_parse_job(
         self, job_posting: str | None, job_desc: JobDescription | None
@@ -169,3 +171,17 @@ def _load_user_profile(
         UserProfile.model_validate(personal_raw),
         PersonalSummary.model_validate(personal_summary_raw),
     )
+
+
+def _load_layout(
+    services: ApplicationServices, user_id: str
+) -> ResumeLayoutConfig | None:
+    """Return the user's saved layout, or None to fall back to the app default."""
+    raw = services.user_data.load(user_id, "layout.json")
+    if raw is None:
+        return None
+    try:
+        return ResumeLayoutConfig.model_validate(raw)
+    except Exception:
+        logger.warning(f"Invalid layout.json for user {user_id} — using default")
+        return None

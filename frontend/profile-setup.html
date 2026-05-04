@@ -129,7 +129,7 @@
               text: sk.text || "",
             })),
           })),
-          experiences: (data.experiences || []).map((e) => ({
+          experience: (data.experience || []).map((e) => ({
             ...e,
             _id: uid(),
             is_current: e.end_date === "Present",
@@ -175,7 +175,7 @@
             name,
             skills: skills.map(({ _id, text }) => ({ text })),
           })),
-          experiences: state.experiences.map(
+          experience: state.experience.map(
             ({
               _id,
               is_current,
@@ -642,8 +642,8 @@
           const newId = uid();
           onChange({
             ...data,
-            experiences: [
-              ...data.experiences,
+            experience: [
+              ...data.experience,
               {
                 _id: newId,
                 company_name: "",
@@ -661,21 +661,21 @@
         const removeExp = (id) => {
           onChange({
             ...data,
-            experiences: data.experiences.filter((e) => e._id !== id),
+            experience: data.experience.filter((e) => e._id !== id),
           });
           if (editingId === id) setEditingId(null);
         };
         const updateExp = (id, field, val) =>
           onChange({
             ...data,
-            experiences: data.experiences.map((e) =>
+            experience: data.experience.map((e) =>
               e._id === id ? { ...e, [field]: val } : e,
             ),
           });
         const addBullet = (expId) =>
           onChange({
             ...data,
-            experiences: data.experiences.map((e) =>
+            experience: data.experience.map((e) =>
               e._id === expId
                 ? {
                     ...e,
@@ -690,7 +690,7 @@
         const removeBullet = (expId, bId) =>
           onChange({
             ...data,
-            experiences: data.experiences.map((e) =>
+            experience: data.experience.map((e) =>
               e._id === expId
                 ? {
                     ...e,
@@ -702,7 +702,7 @@
         const updateBullet = (expId, bId, text) =>
           onChange({
             ...data,
-            experiences: data.experiences.map((e) =>
+            experience: data.experience.map((e) =>
               e._id === expId
                 ? {
                     ...e,
@@ -719,10 +719,10 @@
             <p className="section-desc">
               Work experience, internships, and other professional roles.
             </p>
-            {data.experiences.length === 0 && (
+            {data.experience.length === 0 && (
               <div className="empty-entries">No experience entries yet.</div>
             )}
-            {data.experiences.map((exp) => (
+            {data.experience.map((exp) => (
               <EntryCard
                 key={exp._id}
                 id={exp._id}
@@ -1298,6 +1298,178 @@
         );
       }
 
+      // ── Resume Settings tab ───────────────────────────────────────────────────
+      const SECTION_LABELS = {
+        profile: "Profile Summary",
+        education: "Education",
+        experience: "Experience",
+        projects: "Projects",
+        skills: "Technical Skills",
+        certificates: "Certifications",
+      };
+      const DEFAULT_LAYOUT_ORDER = [
+        "profile",
+        "education",
+        "experience",
+        "projects",
+        "skills",
+        "certificates",
+      ];
+
+      function ResumeSettingsSection({ data, onChange }) {
+        const [exporting, setExporting] = React.useState(false);
+        const order = data;
+        const inactive = DEFAULT_LAYOUT_ORDER.filter((s) => !order.includes(s));
+
+        function move(idx, dir) {
+          const next = [...order];
+          const swap = idx + dir;
+          if (swap < 0 || swap >= next.length) return;
+          [next[idx], next[swap]] = [next[swap], next[idx]];
+          onChange(next);
+        }
+
+        function remove(section) {
+          onChange(order.filter((s) => s !== section));
+        }
+
+        function add(section) {
+          onChange([...order, section]);
+        }
+
+        async function exportResume() {
+          setExporting(true);
+          try {
+            const result = await apiFetch("POST", "/api/v1/resume/export");
+            const res = await fetch(
+              "/api/v1/resume/download/" + result.pdf_url,
+            );
+            if (!res.ok) throw new Error("Download failed");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "resume.pdf";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast("Resume downloaded.", "success");
+          } catch (e) {
+            toast("Export failed: " + e.message, "error");
+          } finally {
+            setExporting(false);
+          }
+        }
+
+        return (
+          <div className="section-wrap">
+            <p className="section-desc">
+              Set the order sections appear on your resume, then download a full
+              version of your profile as a PDF.
+            </p>
+
+            <div className="entry-card" style={{ marginBottom: "24px" }}>
+              <h3
+                style={{
+                  marginBottom: "12px",
+                  fontSize: "13px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: "var(--fg-muted)",
+                }}
+              >
+                Section Order
+              </h3>
+              {order.map((section, idx) => (
+                <div
+                  key={section}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 0",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                >
+                  <span style={{ flex: 1, fontSize: "14px" }}>
+                    {SECTION_LABELS[section] || section}
+                  </span>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => move(idx, -1)}
+                    disabled={idx === 0}
+                    style={{ padding: "2px 8px", minWidth: "28px" }}
+                    title="Move up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => move(idx, 1)}
+                    disabled={idx === order.length - 1}
+                    style={{ padding: "2px 8px", minWidth: "28px" }}
+                    title="Move down"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => remove(section)}
+                    style={{
+                      padding: "2px 8px",
+                      minWidth: "28px",
+                      color: "var(--fg-muted)",
+                    }}
+                    title="Remove section"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              {inactive.length > 0 && (
+                <div style={{ marginTop: "8px" }}>
+                  {inactive.map((section) => (
+                    <div
+                      key={section}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "8px 0",
+                        borderBottom: "1px solid var(--border)",
+                        opacity: 0.45,
+                      }}
+                    >
+                      <span style={{ flex: 1, fontSize: "14px" }}>
+                        {SECTION_LABELS[section] || section}
+                      </span>
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => add(section)}
+                        style={{ padding: "2px 8px" }}
+                        title="Add section"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={exportResume}
+              disabled={exporting}
+            >
+              {exporting ? "Generating…" : "⬇ Download Full Resume"}
+            </button>
+          </div>
+        );
+      }
+
       // ── Tab config ────────────────────────────────────────────────────────────
       const TAB_ORDER = [
         "personal",
@@ -1308,6 +1480,7 @@
         "skills",
         "certificates",
         "summary",
+        "resume_settings",
       ];
       const TAB_LABELS = {
         personal: "Personal",
@@ -1318,6 +1491,7 @@
         skills: "Skills",
         certificates: "Certificates",
         summary: "Q&A",
+        resume_settings: "Resume Settings",
       };
 
       // ── Main App ──────────────────────────────────────────────────────────────
@@ -1334,7 +1508,7 @@
         education: [],
         certificates: [],
         skills: [],
-        experiences: [],
+        experience: [],
         projects: [],
       };
       const BLANK_SUMMARY = { topics: [] };
@@ -1344,13 +1518,14 @@
         const [personal, setPersonal] = useState(BLANK_PERSONAL);
         const [candidate, setCandidate] = useState(BLANK_CANDIDATE);
         const [summary, setSummary] = useState(BLANK_SUMMARY);
+        const [layout, setLayout] = useState(DEFAULT_LAYOUT_ORDER);
         const [loading, setLoading] = useState(true);
         const [saving, setSaving] = useState(false);
 
-        const snap = useRef({ personal, candidate, summary, tab });
+        const snap = useRef({ personal, candidate, summary, layout, tab });
         useEffect(() => {
-          snap.current = { personal, candidate, summary, tab };
-        }, [personal, candidate, summary, tab]);
+          snap.current = { personal, candidate, summary, layout, tab };
+        }, [personal, candidate, summary, layout, tab]);
         useEffect(() => {
           init();
         }, []);
@@ -1373,6 +1548,12 @@
             if (!e.message.includes("404"))
               toast("Could not load profile: " + e.message, "error");
           }
+          try {
+            const layoutData = await apiFetch("GET", "/api/v1/profile/layout");
+            if (layoutData?.section_order) setLayout(layoutData.section_order);
+          } catch (e) {
+            // non-fatal — default order is already set
+          }
           setLoading(false);
         }
 
@@ -1382,6 +1563,7 @@
             personal: p,
             candidate: c,
             summary: s,
+            layout: l,
             tab: t,
           } = snap.current;
           setSaving(true);
@@ -1391,6 +1573,10 @@
             } else if (t === "summary") {
               await apiFetch("PUT", "/api/v1/profile/personal-summary", {
                 topics: s.topics.map(({ _id, ...rest }) => rest),
+              });
+            } else if (t === "resume_settings") {
+              await apiFetch("PUT", "/api/v1/profile/layout", {
+                section_order: l,
               });
             } else {
               await apiFetch(
@@ -1430,7 +1616,7 @@
             education: candidate.education.length,
             certificates: candidate.certificates.length,
             skills: candidate.skills.length,
-            experience: candidate.experiences.length,
+            experience: candidate.experience.length,
             projects: candidate.projects.length,
             summary: summary.topics.length,
           };
@@ -1462,6 +1648,10 @@
               return <CertSection data={candidate} onChange={setCandidate} />;
             case "summary":
               return <SummarySection data={summary} onChange={setSummary} />;
+            case "resume_settings":
+              return (
+                <ResumeSettingsSection data={layout} onChange={setLayout} />
+              );
           }
         }
 

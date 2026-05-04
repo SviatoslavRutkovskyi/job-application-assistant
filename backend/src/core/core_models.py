@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
-from models import GithubLink
+from models import GithubLink, ResumeSectionId
 
 
 # --- Annotated candidate (built in memory; ids + line costs added at runtime) ---
@@ -75,7 +75,7 @@ class AnnotatedCandidate(BaseModel):
     certificates: list[AnnotatedCertificateEntry] = Field(default_factory=list)
     skills: list[AnnotatedSkillCategory]
     projects: list[AnnotatedProject]
-    experiences: list[AnnotatedExperience]
+    experience: list[AnnotatedExperience]
 
 
 # --- Tailored resume output (model returns IDs + rewritten profile only) ---
@@ -103,13 +103,6 @@ class ResumeData(BaseModel):
     selected_experiences: list[SelectedExperience]
     selected_certificate_ids: list[int] = Field(default_factory=list)
     estimated_resume_lines: float
-
-
-# --- Resume layout ---
-
-ResumeSectionId = Literal[
-    "profile", "education", "experience", "projects", "skills", "certificates"
-]
 
 
 class ResumeLayoutConfig(BaseModel):

@@ -47,6 +47,10 @@ class TailorResumeResponse(BaseModel):
     pdf_url: str
 
 
+class ExportResumeResponse(BaseModel):
+    pdf_url: str
+
+
 # --- Question endpoints ---
 
 class AnswerQuestionBody(JobContextBody):

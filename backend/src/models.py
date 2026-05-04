@@ -3,6 +3,13 @@ from typing import Literal, Optional
 from pathlib import Path
 
 
+# --- App config ---
+
+ResumeSectionId = Literal[
+    "profile", "education", "experience", "projects", "skills", "certificates"
+]
+
+
 # --- User identity (separate JSON file, not sent to model) ---
 
 class UserProfile(BaseModel):
@@ -81,7 +88,7 @@ class CandidateProfile(BaseModel):
     certificates: list[CertificateEntry] = Field(default_factory=list)
     skills: list[SkillCategory]
     projects: list[Project]
-    experiences: list[Experience]
+    experience: list[Experience]
 
 
 # --- Text generation output ---
@@ -120,8 +127,10 @@ class AppConfig(BaseModel):
     """App configuration. Paths are interpreted relative to the current working directory."""
     cover_letter_template: Path
     resume_template_tex: Path
-    resume_layout_json: Path
     line_estimates_json: Path
+    section_order: list[ResumeSectionId] = Field(
+        default=["profile", "education", "experience", "projects", "skills", "certificates"]
+    )
     eval_limit: int = 5
     fit_limit: int = 3
 

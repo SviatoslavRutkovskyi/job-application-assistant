@@ -18,6 +18,10 @@ from core.core_models import (
     AnnotatedSkill,
     AnnotatedSkillCategory,
     ResumeData,
+    ResumeLayoutConfig,
+    SelectedExperience,
+    SelectedProject,
+    SelectedSkillsCategory,
 )
 from core.latex_generator import LatexGenerator
 from infrastructure.ai_client import AIClient
@@ -61,7 +65,7 @@ def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> Annotate
                 bullet_points=annotate_bullets(exp.bullet_points),
                 **exp.model_dump(exclude={"bullet_points"}),
             )
-            for i, exp in enumerate(candidate.experiences, start=1)
+            for i, exp in enumerate(candidate.experience, start=1)
         ],
         projects=[
             AnnotatedProject(
@@ -72,6 +76,19 @@ def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> Annotate
             for i, proj in enumerate(candidate.projects, start=1)
         ],
     )
+
+
+def _apply_layout_filter(ac: AnnotatedCandidate, layout: ResumeLayoutConfig) -> AnnotatedCandidate:
+    """Return a copy of AnnotatedCandidate with sections absent from the layout cleared.
+    The AI and line counter only see what will actually render."""
+    sections = set(layout.section_order)
+    return ac.model_copy(update={
+        "education":    ac.education    if "education"     in sections else [],
+        "certificates": ac.certificates if "certificates"  in sections else [],
+        "skills":       ac.skills       if "skills"        in sections else [],
+        "experience":  ac.experience  if "experience"    in sections else [],
+        "projects":     ac.projects     if "projects"      in sections else [],
+    })
 
 
 class Resume:
@@ -113,16 +130,19 @@ class Resume:
         candidate: CandidateProfile,
         user_profile: UserProfile,
         user_id: str,
+        layout: ResumeLayoutConfig | None = None,
     ):
         annotated_candidate = annotate_candidate(candidate, self._line_estimates)
+        if layout is not None:
+            annotated_candidate = _apply_layout_filter(annotated_candidate, layout)
 
         ac = annotated_candidate
         edu_costs   = {e.id: e.line_cost for e in ac.education}
         cert_costs  = {c.id: c.line_cost for c in ac.certificates}
         skill_costs = {s.id: s.line_cost for s in ac.skills}
-        exp_costs   = {e.id: e.line_cost for e in ac.experiences}
+        exp_costs   = {e.id: e.line_cost for e in ac.experience}
         proj_costs  = {p.id: p.line_cost for p in ac.projects}
-        exp_bullet_costs  = {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experiences}
+        exp_bullet_costs  = {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experience}
         proj_bullet_costs = {p.id: {b.id: b.line_cost for b in p.bullet_points} for p in ac.projects}
 
         cost_maps = (edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs)
@@ -184,7 +204,7 @@ class Resume:
         company_name_sanitized = sanitize_filename(job_info.company_name or "")
         filename_base = f"resume_{company_name_sanitized}" if company_name_sanitized else "resume"
 
-        latex_content = self.latex_generator.convert_to_latex(annotated_candidate, user_profile, resume_data)
+        latex_content = self.latex_generator.convert_to_latex(annotated_candidate, user_profile, resume_data, layout=layout)
         if latex_content is None:
             logger.error("Failed to create LaTeX from resume data")
             return None
@@ -214,6 +234,79 @@ class Resume:
         elapsed = time.time() - start_time
         logger.info(f"[5/5] Resume generated successfully: {blob_name} ({elapsed:.1f}s elapsed)")
         return blob_name, resume_data.model_dump_json()
+
+    def export_full_resume(
+        self,
+        candidate: CandidateProfile,
+        user_profile: UserProfile,
+        user_id: str,
+        layout: ResumeLayoutConfig | None = None,
+    ) -> str | None:
+        """Compile a PDF containing every section and bullet — no AI selection, no page-fit loop."""
+        annotated_candidate = annotate_candidate(candidate, self._line_estimates)
+        if layout is not None:
+            annotated_candidate = _apply_layout_filter(annotated_candidate, layout)
+        ac = annotated_candidate
+
+        resume_data = ResumeData(
+            profile=candidate.profile,
+            selected_education_ids=[e.id for e in ac.education],
+            selected_certificate_ids=[c.id for c in ac.certificates],
+            selected_skills=[
+                SelectedSkillsCategory(
+                    category_id=cat.id,
+                    skill_ids=[s.id for s in cat.skills],
+                )
+                for cat in ac.skills
+            ],
+            selected_experiences=[
+                SelectedExperience(
+                    experience_id=exp.id,
+                    bullet_ids=[b.id for b in exp.bullet_points],
+                )
+                for exp in ac.experience
+            ],
+            selected_projects=[
+                SelectedProject(
+                    project_id=proj.id,
+                    bullet_ids=[b.id for b in proj.bullet_points],
+                )
+                for proj in ac.projects
+            ],
+            estimated_resume_lines=0,
+        )
+
+        latex_content = self.latex_generator.convert_to_latex(
+            annotated_candidate, user_profile, resume_data, layout=layout
+        )
+        if latex_content is None:
+            logger.error("Failed to create LaTeX for full resume export")
+            return None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            tex_path = tmp_path / "resume_full.tex"
+            tex_path.write_bytes(latex_content.encode("utf-8"))
+
+            result = subprocess.run(
+                ["tectonic", tex_path.name],
+                cwd=tmp_path,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"LaTeX compilation failed: {result.stderr}")
+                return None
+
+            blob_name = self.blob.upload(
+                "resume_full.pdf",
+                tex_path.with_suffix(".pdf").read_bytes(),
+                user_id,
+            )
+
+        logger.info(f"Full resume exported: {blob_name}")
+        return blob_name
 
     def calculate_resume_lines(self, resume_data: ResumeData, annotated_candidate, cost_maps: tuple) -> float:
         edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs = cost_maps

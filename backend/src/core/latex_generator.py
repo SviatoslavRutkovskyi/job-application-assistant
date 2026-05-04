@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import logging
 from pathlib import Path
@@ -70,9 +69,7 @@ def _resolve_text(items: list, selected_ids: list[int]) -> list[str]:
 class LatexGenerator:
     def __init__(self, config: AppConfig):
         self.config = config
-        layout_path = Path(self.config.resume_layout_json)
-        with open(layout_path, encoding="utf-8") as f:
-            self.layout = ResumeLayoutConfig.model_validate(json.load(f))
+        self.layout = ResumeLayoutConfig(section_order=config.section_order)
 
     _REPLACEMENTS = {
         "\\": "\\textbackslash{}",
@@ -94,7 +91,13 @@ class LatexGenerator:
     def _github_link_tex(self, link: str, label: str) -> str:
         return r"\href{" + link + r"}{\large{\underline{" + self._e(label) + r"}}}"
 
-    def convert_to_latex(self, corpus: AnnotatedCandidate, personal: UserProfile, resume_data: ResumeData) -> str | None:
+    def convert_to_latex(
+        self,
+        corpus: AnnotatedCandidate,
+        personal: UserProfile,
+        resume_data: ResumeData,
+        layout: ResumeLayoutConfig | None = None,
+    ) -> str | None:
         template_path = Path(self.config.resume_template_tex)
         try:
             tex = template_path.read_text(encoding="utf-8")
@@ -102,15 +105,15 @@ class LatexGenerator:
             logger.error(f"Error reading resume template {template_path}: {e}")
             return None
 
-        body = self._build_body(corpus, personal, resume_data)
+        body = self._build_body(corpus, personal, resume_data, layout or self.layout)
         try:
             return _replace_marked_block(tex, "body", body, path=template_path)
         except ValueError as e:
             logger.error(f"Error creating LaTeX content: {e}")
             return None
 
-    def _build_body(self, corpus: AnnotatedCandidate, personal: UserProfile, data: ResumeData) -> str:
-        parts: list[str] = [self._render_header(personal), self._render_ordered_sections(corpus, data)]
+    def _build_body(self, corpus: AnnotatedCandidate, personal: UserProfile, data: ResumeData, layout: ResumeLayoutConfig) -> str:
+        parts: list[str] = [self._render_header(personal), self._render_ordered_sections(corpus, data, layout)]
         return "\n".join(p for p in parts if p)
 
     def _render_header(self, personal: UserProfile) -> str:
@@ -150,10 +153,10 @@ class LatexGenerator:
         lines.extend([r"    \vspace{-8pt}", r"\end{center}", ""])
         return "\n".join(lines)
 
-    def _render_ordered_sections(self, corpus: AnnotatedCandidate, data: ResumeData) -> str:
+    def _render_ordered_sections(self, corpus: AnnotatedCandidate, data: ResumeData, layout: ResumeLayoutConfig) -> str:
         chunks: list[str] = []
 
-        for section in self.layout.section_order:
+        for section in layout.section_order:
             if section == "profile":
                 chunks.append(self._render_profile(data.profile))
             elif section == "education":
@@ -163,7 +166,7 @@ class LatexGenerator:
             elif section == "experience":
                 blocks = [(e, _resolve_text(e.bullet_points, se.bullet_ids))
                           for se in data.selected_experiences
-                          for e in _resolve(corpus.experiences, [se.experience_id])]
+                          for e in _resolve(corpus.experience, [se.experience_id])]
                 blocks = [(e, b) for e, b in blocks if b]
                 if blocks:
                     chunks.append(self._render_experience_blocks(blocks))
