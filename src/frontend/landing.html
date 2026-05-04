@@ -191,14 +191,19 @@
           grid-template-columns: 1fr;
           gap: 24px;
         }
-        .landing-hero { padding: 64px 24px 56px; }
+        .landing-hero {
+          padding: 64px 24px 56px;
+        }
       }
     </style>
   </head>
   <body>
     <header class="landing-header">
       <span class="header-title">job-application-assistant</span>
-      <a class="btn btn-primary btn-sm" href="/.auth/login/oidc?post_login_redirect_uri=/">
+      <a
+        class="btn btn-primary btn-sm"
+        href="/.auth/login/oidc?post_login_redirect_uri=/"
+      >
         Sign In
       </a>
     </header>
@@ -212,10 +217,14 @@
       </h1>
       <p class="hero-sub">
         Paste any job posting. The app selects your most relevant experience,
-        writes a targeted cover letter, and answers application questions — in seconds.
+        writes a targeted cover letter, and answers application questions — in
+        seconds.
       </p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="/.auth/login/oidc?post_login_redirect_uri=/">
+        <a
+          class="btn btn-primary"
+          href="/.auth/login/oidc?post_login_redirect_uri=/"
+        >
           Get Started
         </a>
         <a class="btn" href="/.auth/login/oidc?post_login_redirect_uri=/">
@@ -233,7 +242,8 @@
           <span class="step-title">Build your profile once</span>
           <span class="step-desc">
             Enter your experience, projects, skills, and education. Write a few
-            narrative responses the AI draws from when answering questions in your voice.
+            narrative responses the AI draws from when answering questions in
+            your voice.
           </span>
         </div>
         <div class="landing-step">
@@ -248,8 +258,9 @@
           <span class="step-num">03</span>
           <span class="step-title">Generate and download</span>
           <span class="step-desc">
-            Get a tailored resume PDF, a cover letter that passes a five-dimension
-            quality check, and answers to open-ended application questions.
+            Get a tailored resume PDF, a cover letter that passes a
+            five-dimension quality check, and answers to open-ended application
+            questions.
           </span>
         </div>
       </div>
@@ -264,8 +275,8 @@
           <div class="feature-title">Tailored to every role</div>
           <div class="feature-desc">
             Selects and orders your experience to match each job description.
-            Compiled to a clean, ATS-friendly PDF via LaTeX. Fits a single
-            page automatically.
+            Compiled to a clean, ATS-friendly PDF via LaTeX. Fits a single page
+            automatically.
           </div>
         </div>
         <div class="landing-feature">
@@ -273,8 +284,8 @@
           <div class="feature-title">Generated and evaluated</div>
           <div class="feature-desc">
             Written against your actual candidate data — no fabricated metrics.
-            Automatically scored on opening, depth, role fit, company specificity,
-            and clarity. Retries until it passes.
+            Automatically scored on opening, depth, role fit, company
+            specificity, and clarity. Retries until it passes.
           </div>
         </div>
         <div class="landing-feature">
@@ -282,15 +293,28 @@
           <div class="feature-title">Answered in your voice</div>
           <div class="feature-desc">
             Handles open-ended application questions using your profile and
-            personal narrative context. Writes in first person, grounded in
-            your actual experience.
+            personal narrative context. Writes in first person, grounded in your
+            actual experience.
           </div>
         </div>
       </div>
     </section>
 
     <footer class="landing-footer">
-      Built by <a href="https://github.com/sviatchr" target="_blank" rel="noopener">Sviatoslav Rutkovskyi</a>
+      Built by
+      <a
+        href="https://github.com/SviatoslavRutkovskyi"
+        target="_blank"
+        rel="noopener"
+        >Sviatoslav Rutkovskyi</a
+      >
+      &nbsp;·&nbsp;
+      <a
+        href="https://www.linkedin.com/in/sviatoslav-rutkovskyi/"
+        target="_blank"
+        rel="noopener"
+        >LinkedIn</a
+      >
       &nbsp;·&nbsp; Portfolio project
     </footer>
   </body>
