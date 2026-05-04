@@ -46,6 +46,15 @@ async function requireAuth() {
   }
 }
 
+// Use this for sign-in links. In local dev, go straight to the app.
+function signIn() {
+  if (_IS_LOCAL) {
+    window.location.href = "/";
+  } else {
+    window.location.href = "/.auth/login/oidc?post_login_redirect_uri=/";
+  }
+}
+
 // Use this instead of a plain href for sign-out links.
 // In local dev, Azure's /.auth/logout doesn't exist — just navigate to landing.
 function signOut() {

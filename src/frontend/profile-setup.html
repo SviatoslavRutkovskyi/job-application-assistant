@@ -1481,16 +1481,9 @@
                 <a className="btn btn-sm" href="/">
                   ← Back to App
                 </a>
-                <a
-                  className="btn btn-sm"
-                  href="/.auth/logout?post_logout_redirect_uri=/frontend/landing.html"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    signOut();
-                  }}
-                >
+                <button className="btn btn-sm" onClick={() => signOut()}>
                   Sign Out
-                </a>
+                </button>
               </div>
             </header>
 

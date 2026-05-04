@@ -10,6 +10,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/frontend/style.css" />
+    <script src="/frontend/auth.js"></script>
     <style>
       .landing-header {
         background: var(--surface);
@@ -200,12 +201,7 @@
   <body>
     <header class="landing-header">
       <span class="header-title">job-application-assistant</span>
-      <a
-        class="btn btn-primary btn-sm"
-        href="/.auth/login/oidc?post_login_redirect_uri=/"
-      >
-        Sign In
-      </a>
+      <button class="btn btn-primary btn-sm" onclick="signIn()">Sign In</button>
     </header>
 
     <!-- Hero -->
@@ -221,15 +217,7 @@
         seconds.
       </p>
       <div class="hero-cta">
-        <a
-          class="btn btn-primary"
-          href="/.auth/login/oidc?post_login_redirect_uri=/"
-        >
-          Get Started
-        </a>
-        <a class="btn" href="/.auth/login/oidc?post_login_redirect_uri=/">
-          Sign In
-        </a>
+        <button class="btn btn-primary" onclick="signIn()">Get Started</button>
       </div>
     </section>
 
