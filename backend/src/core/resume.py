@@ -114,6 +114,17 @@ class Resume:
             raise ValueError(f"Invalid line estimates JSON at {line_path}: {e}") from e
 
     def _fit_score(self, lines: float) -> tuple:
+        """Return a tuple that encodes how far the resume is from fitting one page.
+
+        (0, 0)       — within the acceptable range; perfect.
+        (1, delta)   — too short by `delta` lines.
+        (2, delta)   — too long by `delta` lines.
+
+        Tuples compare lexicographically, so (1, x) < (2, y) for any x, y.
+        This means too-short is always preferred over too-long: a sparse resume
+        is recoverable by the user; an overflowing one gets silently clipped by
+        the PDF renderer.
+        """
         min_l = self._line_estimates['min_page_lines']
         max_l = self._line_estimates['max_page_lines']
         if lines > max_l:
