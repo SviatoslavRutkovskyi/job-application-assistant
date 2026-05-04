@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Header, HTTPException, Request, status
+from fastapi import Header, HTTPException, Request
 
 from core.cover_letter import CoverLetter
 from core.job_processor import JobProcessor
@@ -143,10 +143,7 @@ class ApplicationServices:
             logger.info("Using client-provided job description")
             return job_desc
         if not job_posting or not job_posting.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Provide job_posting text/URL or a parsed job_description.",
-            )
+            raise ValueError("Provide job_posting text/URL or a parsed job_description.")
         return self.job_processor.process_and_extract_job_info(job_posting)
 
 
@@ -165,10 +162,7 @@ def _load_user_profile(
     personal_summary_raw = services.user_data.load(user_id, "personal_summary.json")
 
     if any(raw is None for raw in (personal_raw, candidate_raw, personal_summary_raw)):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Profile setup incomplete. Upload all three profile files before using the app.",
-        )
+        raise ValueError("Profile setup incomplete. Upload all three profile files before using the app.")
 
     return (
         CandidateProfile.model_validate(candidate_raw),

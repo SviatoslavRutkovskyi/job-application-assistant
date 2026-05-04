@@ -21,20 +21,17 @@ def profile_exists(request: Request, user_id: str = Depends(get_current_user)):
 @router.get("/profile", response_model=ProfileResponse)
 def get_profile(request: Request, user_id: str = Depends(get_current_user)):
     services = get_services(request)
-    personal_raw = services.user_data.load(user_id, "personal.json")
-    candidate_raw = services.user_data.load(user_id, "candidate.json")
-    personal_summary_raw = services.user_data.load(user_id, "personal_summary.json")
-
-    if any(raw is None for raw in (personal_raw, candidate_raw, personal_summary_raw)):
+    try:
+        candidate, personal, personal_summary = _load_user_profile(services, user_id)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Profile not found. Complete profile setup first.",
         )
-
     return ProfileResponse(
-        personal=UserProfile.model_validate(personal_raw),
-        candidate=CandidateProfile.model_validate(candidate_raw),
-        personal_summary=PersonalSummary.model_validate(personal_summary_raw),
+        personal=personal,
+        candidate=candidate,
+        personal_summary=personal_summary,
     )
 
 
