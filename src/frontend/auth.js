@@ -45,3 +45,14 @@ async function requireAuth() {
     window.location.href = "/frontend/landing.html";
   }
 }
+
+// Use this instead of a plain href for sign-out links.
+// In local dev, Azure's /.auth/logout doesn't exist — just navigate to landing.
+function signOut() {
+  if (_IS_LOCAL) {
+    window.location.href = "/frontend/landing.html";
+  } else {
+    window.location.href =
+      "/.auth/logout?post_logout_redirect_uri=/frontend/landing.html";
+  }
+}
