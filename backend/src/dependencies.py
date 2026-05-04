@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -158,10 +159,16 @@ def _load_user_profile(
 ) -> tuple[CandidateProfile, UserProfile, PersonalSummary]:
     """Load and validate all three profile blobs for the authenticated user.
     Raises 400 if any file is missing — directs the user to complete profile setup.
+    All three blobs are fetched in parallel to reduce latency.
     """
-    personal_raw = services.user_data.load(user_id, "personal.json")
-    candidate_raw = services.user_data.load(user_id, "candidate.json")
-    personal_summary_raw = services.user_data.load(user_id, "personal_summary.json")
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_personal  = executor.submit(services.user_data.load, user_id, "personal.json")
+        f_candidate = executor.submit(services.user_data.load, user_id, "candidate.json")
+        f_summary   = executor.submit(services.user_data.load, user_id, "personal_summary.json")
+
+    personal_raw        = f_personal.result()
+    candidate_raw       = f_candidate.result()
+    personal_summary_raw = f_summary.result()
 
     if any(raw is None for raw in (personal_raw, candidate_raw, personal_summary_raw)):
         raise ValueError("Profile setup incomplete. Upload all three profile files before using the app.")
