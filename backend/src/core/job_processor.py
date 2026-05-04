@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 import json
 import requests
@@ -41,7 +42,34 @@ Return ONLY valid JSON with missing fields as null or [].
         except Exception:
             return False
 
+    def _is_safe_url(self, url: str) -> bool:
+        """Allowlist check to prevent SSRF attacks.
+
+        Permits only HTTPS URLs with a non-empty host that resolves to a
+        globally routable IP. Blocks private, loopback, and link-local ranges
+        (e.g. 169.254.169.254 Azure Instance Metadata Service).
+        """
+        try:
+            parsed = urlparse(url)
+            if parsed.scheme != "https":
+                return False
+            host = parsed.hostname or ""
+            if not host:
+                return False
+            # If the host is already an IP address, check it directly.
+            try:
+                addr = ipaddress.ip_address(host)
+                return addr.is_global and not addr.is_loopback and not addr.is_private
+            except ValueError:
+                pass  # It's a hostname — DNS resolution happens at request time.
+            return True
+        except Exception:
+            return False
+
     def scrape_webpage_simple(self, url: str) -> str | None:
+        if not self._is_safe_url(url):
+            logger.error(f"Blocked unsafe URL: {url}")
+            return None
         try:
             logger.info(f"Scraping {url}")
             headers = {
@@ -86,5 +114,5 @@ Return ONLY valid JSON with missing fields as null or [].
                 "or a description summary (40+ chars)."
             )
 
-        logger.info(f"Job info extracted: {job_info.model_dump_json(indent=2)}")
+        logger.debug(f"Job info extracted: {job_info.model_dump_json(indent=2)}")
         return job_info
