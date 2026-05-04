@@ -115,8 +115,8 @@ Scoring rules:
             evaluation = self.evaluate(evaluator_system_prompt, job_info, cover_letter)
 
             logger.info(f"[attempt {i + 1}/{self.eval_limit}] score: {evaluation.score} — {'passed' if evaluation.is_acceptable else 'retrying'}")
-            logger.info(f"    cover letter: {cover_letter}")
-            logger.info(f"    feedback: {evaluation.feedback}")
+            logger.debug(f"    cover letter: {cover_letter}")
+            logger.debug(f"    feedback: {evaluation.feedback}")
 
             if evaluation.score > max_score:
                 max_score = evaluation.score
@@ -135,7 +135,7 @@ Scoring rules:
             ])
 
         logger.warning(f"Eval limit reached — returning best attempt (score: {max_score})")
-        logger.warning(f"    feedback: {best_feedback}")
+        logger.debug(f"    feedback: {best_feedback}")
         return best_cover_letter
 
     def convert_cover_letter_to_pdf(self, cover_letter_text: str):
