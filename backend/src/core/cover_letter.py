@@ -3,7 +3,8 @@ from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-from ai_client import AIClient
+
+from infrastructure.ai_client import AIClient
 from models import AppConfig, CandidateProfile, Evaluation, JobDescription, TextResponse, UserProfile
 
 logger = logging.getLogger(__name__)

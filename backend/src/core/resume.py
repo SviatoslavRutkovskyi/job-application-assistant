@@ -1,19 +1,77 @@
 import json
+import math
+import logging
 import tempfile
 import subprocess
 import time
-import logging
 from pathlib import Path
 from uuid import uuid4
-import math
 
-from ai_client import AIClient
-from latex_generator import LatexGenerator
-from models import AppConfig, CandidateProfile, JobDescription, ResumeData, UserProfile
-from blob_client import BlobClient
-from utils import annotate_candidate, sanitize_filename
+from core.core_models import (
+    AnnotatedBullet,
+    AnnotatedCandidate,
+    AnnotatedCertificateEntry,
+    AnnotatedEducationEntry,
+    AnnotatedExperience,
+    AnnotatedProject,
+    AnnotatedProfile,
+    AnnotatedSkill,
+    AnnotatedSkillCategory,
+    ResumeData,
+)
+from core.latex_generator import LatexGenerator
+from infrastructure.ai_client import AIClient
+from infrastructure.blob_client import BlobClient
+from models import AppConfig, CandidateProfile, JobDescription, UserProfile
+from utils import sanitize_filename
 
 logger = logging.getLogger(__name__)
+
+
+def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> AnnotatedCandidate:
+    """Build AnnotatedCandidate from source data. Assigns ids and computes line costs."""
+    chars_per_line_bullet = estimates["chars_per_line_bullet"]
+
+    def annotate_bullets(bullets) -> list[AnnotatedBullet]:
+        def cost(text: str) -> float:
+            return math.ceil(len(text) / chars_per_line_bullet)
+        return [AnnotatedBullet(id=j, text=b.text, line_cost=cost(b.text)) for j, b in enumerate(bullets, start=1)]
+
+    return AnnotatedCandidate(
+        section_heading_line=estimates["section_heading_line"],
+        profile=AnnotatedProfile(text=candidate.profile, line_cost=estimates["profile_lines"]),
+        education=[
+            AnnotatedEducationEntry(id=i, line_cost=estimates["education_item_line"], **e.model_dump())
+            for i, e in enumerate(candidate.education, start=1)
+        ],
+        certificates=[
+            AnnotatedCertificateEntry(id=i, line_cost=estimates["certificate_item_line"], **c.model_dump())
+            for i, c in enumerate(candidate.certificates, start=1)
+        ],
+        skills=[
+            AnnotatedSkillCategory(
+                id=i, line_cost=estimates["skills_category_line"], name=cat.name,
+                skills=[AnnotatedSkill(id=j, text=s.text) for j, s in enumerate(cat.skills, start=1)],
+            )
+            for i, cat in enumerate(candidate.skills, start=1)
+        ],
+        experiences=[
+            AnnotatedExperience(
+                id=i, line_cost=estimates["experience_item_line"],
+                bullet_points=annotate_bullets(exp.bullet_points),
+                **exp.model_dump(exclude={"bullet_points"}),
+            )
+            for i, exp in enumerate(candidate.experiences, start=1)
+        ],
+        projects=[
+            AnnotatedProject(
+                id=i, line_cost=estimates["project_item_line"],
+                bullet_points=annotate_bullets(proj.bullet_points),
+                **proj.model_dump(exclude={"bullet_points"}),
+            )
+            for i, proj in enumerate(candidate.projects, start=1)
+        ],
+    )
 
 
 class Resume:
@@ -58,7 +116,6 @@ class Resume:
     ):
         annotated_candidate = annotate_candidate(candidate, self._line_estimates)
 
-        # Cache lookup dicts — annotated_candidate never mutates after construction
         ac = annotated_candidate
         edu_costs   = {e.id: e.line_cost for e in ac.education}
         cert_costs  = {c.id: c.line_cost for c in ac.certificates}

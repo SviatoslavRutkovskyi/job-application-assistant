@@ -3,7 +3,8 @@ import json
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from ai_client import AIClient
+
+from infrastructure.ai_client import AIClient
 from models import JobDescription
 
 logger = logging.getLogger(__name__)

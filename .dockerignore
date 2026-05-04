@@ -3,6 +3,7 @@
 __pycache__
 .cursor
 *.pyc
-static/output
 .git
-src/me
+me
+frontend/node_modules
+frontend/dist

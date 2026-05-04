@@ -7,17 +7,16 @@ import re
 import logging
 from pathlib import Path
 
-from models import (
+from core.core_models import (
     AnnotatedCandidate,
     AnnotatedCertificateEntry,
     AnnotatedEducationEntry,
     AnnotatedExperience,
     AnnotatedProject,
-    AppConfig,
     ResumeData,
     ResumeLayoutConfig,
-    UserProfile,
 )
+from models import AppConfig, UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +74,6 @@ class LatexGenerator:
         with open(layout_path, encoding="utf-8") as f:
             self.layout = ResumeLayoutConfig.model_validate(json.load(f))
 
-    # Single-pass LaTeX escaping — compiled once at class definition.
-    # Sequential str.replace would re-escape braces inside \textbackslash{}.
     _REPLACEMENTS = {
         "\\": "\\textbackslash{}",
         "&":  "\\&",

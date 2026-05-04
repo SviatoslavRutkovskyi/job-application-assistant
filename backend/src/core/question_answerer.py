@@ -1,6 +1,6 @@
 import json
 
-from ai_client import AIClient
+from infrastructure.ai_client import AIClient
 from models import CandidateProfile, JobDescription, PersonalSummary, TextResponse, UserProfile
 
 
@@ -19,7 +19,9 @@ class QuestionAnswerer:
         personal_summary: PersonalSummary,
     ) -> str:
         summary = json.dumps(personal_summary.model_dump(), indent=2, ensure_ascii=False)
-        system_prompt = self._build_system_prompt(summary, candidate.model_dump_json(indent=2), user_profile.name)
+        system_prompt = self._build_system_prompt(
+            summary, candidate.model_dump_json(indent=2), user_profile.name
+        )
         return self.ai.run(system_prompt, self._build_user_message(job_info, question), TextResponse).text
 
     def _build_system_prompt(self, summary: str, candidate_json: str, name: str) -> str:

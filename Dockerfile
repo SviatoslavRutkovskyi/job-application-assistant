@@ -17,10 +17,11 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-# Copy src contents directly into /app so relative paths match local dev
-COPY src/ ./
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
 
-# Ensure output directory exists
 RUN mkdir -p static/output
 
-CMD ["uv", "run", "python", "main.py"]
+ENV APP_CONFIG=/app/backend/resources/app_config.json
+
+CMD ["uv", "run", "python", "backend/src/main.py"]

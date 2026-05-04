@@ -1,0 +1,8 @@
+{
+  "cover_letter_template": "backend/resources/cover_letter_template.txt",
+  "resume_template_tex": "backend/resources/resume_template.tex",
+  "resume_layout_json": "backend/resources/resume_layout.json",
+  "line_estimates_json": "backend/resources/line_estimates.json",
+  "eval_limit": 5,
+  "fit_limit": 3
+}

@@ -1,8 +1,0 @@
-{
-  "cover_letter_template": "resources/cover_letter_template.txt",
-  "resume_template_tex": "resources/resume_template.tex",
-  "resume_layout_json": "resources/resume_layout.json",
-  "line_estimates_json": "resources/line_estimates.json",
-  "eval_limit": 5,
-  "fit_limit": 3
-}
