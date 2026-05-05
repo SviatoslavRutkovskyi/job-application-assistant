@@ -1668,8 +1668,183 @@
         );
       }
 
+      // ── Upload Resume tab ─────────────────────────────────────────────────────
+      function UploadResumeSection({ hasExistingProfile, onUploadComplete }) {
+        const [file, setFile] = useState(null);
+        const [confirmed, setConfirmed] = useState(false);
+        const [uploading, setUploading] = useState(false);
+        const [result, setResult] = useState(null);
+
+        async function handleUpload() {
+          if (!file) {
+            toast("Please select a file.", "error");
+            return;
+          }
+          if (hasExistingProfile && !confirmed) {
+            toast(
+              "Please confirm you want to overwrite your existing profile.",
+              "error",
+            );
+            return;
+          }
+          setUploading(true);
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch("/api/v1/profile/upload-resume", {
+              method: "POST",
+              body: formData,
+            });
+            if (!res.ok) {
+              const j = await res.json().catch(() => ({}));
+              throw new Error(j.detail || `Upload failed (${res.status})`);
+            }
+            const data = await res.json();
+            setResult(data);
+            onUploadComplete(data);
+            toast(
+              "Resume imported! Review each tab and fill in any gaps.",
+              "success",
+            );
+          } catch (e) {
+            toast("Upload failed: " + e.message, "error");
+          } finally {
+            setUploading(false);
+          }
+        }
+
+        const parts = [];
+        if (result) {
+          if (result.experience_count)
+            parts.push(
+              `${result.experience_count} job${result.experience_count !== 1 ? "s" : ""}`,
+            );
+          if (result.education_count)
+            parts.push(
+              `${result.education_count} education entr${result.education_count !== 1 ? "ies" : "y"}`,
+            );
+          if (result.projects_count)
+            parts.push(
+              `${result.projects_count} project${result.projects_count !== 1 ? "s" : ""}`,
+            );
+          if (result.skills_count)
+            parts.push(
+              `${result.skills_count} skill categor${result.skills_count !== 1 ? "ies" : "y"}`,
+            );
+          if (result.certificates_count)
+            parts.push(
+              `${result.certificates_count} certificate${result.certificates_count !== 1 ? "s" : ""}`,
+            );
+        }
+
+        return (
+          <div className="section-card">
+            <h2 className="section-title">Import from Resume</h2>
+            <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>
+              Upload your existing resume to automatically populate your
+              profile. Accepted formats: PDF, DOCX, TXT.
+            </p>
+
+            {hasExistingProfile && (
+              <div
+                className="form-group"
+                style={{
+                  background: "var(--bg-card-alt, var(--bg-card))",
+                  border: "1px solid var(--warning, #b45309)",
+                  borderRadius: "6px",
+                  padding: "0.875rem 1rem",
+                  marginBottom: "1.25rem",
+                }}
+              >
+                <p style={{ margin: "0 0 0.5rem", fontWeight: 500 }}>
+                  ⚠️ Your profile already has data
+                </p>
+                <p
+                  style={{
+                    margin: "0 0 0.75rem",
+                    color: "var(--text-muted)",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  Uploading a resume will overwrite your current personal info
+                  and candidate profile. Q&amp;A topics will not be affected.
+                </p>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    onChange={(e) => setConfirmed(e.target.checked)}
+                  />
+                  I understand — overwrite my existing profile data
+                </label>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">Resume File</label>
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt"
+                onChange={(e) => {
+                  setFile(e.target.files[0] || null);
+                  setResult(null);
+                }}
+                style={{ display: "block", marginBottom: "1rem" }}
+              />
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={handleUpload}
+              disabled={
+                uploading || !file || (hasExistingProfile && !confirmed)
+              }
+            >
+              {uploading ? "Importing…" : "Import Resume"}
+            </button>
+
+            {result && (
+              <div
+                style={{
+                  marginTop: "1.25rem",
+                  padding: "0.875rem 1rem",
+                  background: "var(--bg-card-alt, var(--bg-card))",
+                  border: "1px solid var(--success, #15803d)",
+                  borderRadius: "6px",
+                }}
+              >
+                <p style={{ margin: "0 0 0.25rem", fontWeight: 500 }}>
+                  ✓ Profile populated
+                </p>
+                {parts.length > 0 && (
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "var(--text-muted)",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    Imported: {parts.join(", ")}. Review each tab to verify and
+                    fill in any gaps.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      }
+
       // ── Tab config ────────────────────────────────────────────────────────────
       const TAB_ORDER = [
+        "upload",
         "personal",
         "profile",
         "education",
@@ -1681,6 +1856,7 @@
         "resume_settings",
       ];
       const TAB_LABELS = {
+        upload: "Upload Resume",
         personal: "Personal",
         profile: "Profile",
         education: "Education",
@@ -1784,6 +1960,7 @@
             loading: isLoading,
           } = snap.current;
           if (isLoading) return;
+          if (t === "upload") return;
           if (
             validateTab(t, { personal: p, candidate: c, summary: s, layout: l })
               .length > 0
@@ -1813,11 +1990,15 @@
                 topics: (raw.topics || []).map((t) => ({ ...t, _id: uid() })),
               });
             }
-            // Auto-open personal edit if name is empty (new user)
-            if (!data?.personal?.name?.trim()) setPersonalEditing(true);
+            // New users (no name) go to the upload tab; returning users stay on personal.
+            if (!data?.personal?.name?.trim()) {
+              setTab("upload");
+              setPersonalEditing(true); // pre-open edit mode for when they reach personal tab
+            }
           } catch (e) {
             if (!e.message.includes("404"))
               toast("Could not load profile: " + e.message, "error");
+            setTab("upload");
             setPersonalEditing(true);
           }
           try {
@@ -1891,6 +2072,7 @@
 
         const tabEnabled = (t) =>
           t === "personal" ||
+          t === "upload" ||
           validateTab("personal", { personal, candidate, summary, layout })
             .length === 0;
 
@@ -1904,6 +2086,28 @@
               toast("Save failed: " + e.message, "error"),
             );
           switch (tab) {
+            case "upload": {
+              const hasExistingProfile = !!(
+                personal.name.trim() ||
+                candidate.experience.length ||
+                candidate.education.length ||
+                candidate.projects.length ||
+                candidate.skills.length
+              );
+              function onUploadComplete(data) {
+                if (data?.personal)
+                  setPersonal({ ...BLANK_PERSONAL, ...data.personal });
+                if (data?.candidate)
+                  setCandidate(fromCandidate(data.candidate));
+                refreshLineCount();
+              }
+              return (
+                <UploadResumeSection
+                  hasExistingProfile={hasExistingProfile}
+                  onUploadComplete={onUploadComplete}
+                />
+              );
+            }
             case "personal":
               return (
                 <PersonalSection

@@ -11,6 +11,7 @@ from fastapi import Header, HTTPException, Request, status
 from core.cover_letter import CoverLetter
 from core.job_processor import JobProcessor
 from core.resume import Resume
+from core.resume_extractor import ResumeExtractor
 from core.question_answerer import QuestionAnswerer
 from core.core_models import ResumeLayoutConfig
 from infrastructure.ai_client import AIClient
@@ -137,6 +138,7 @@ class ApplicationServices:
         )
         self.question_answerer = QuestionAnswerer(ai=ai)
         self.job_processor = JobProcessor(ai=ai)
+        self.resume_extractor = ResumeExtractor(ai=ai)
         self.default_layout = self.resume_builder.latex_generator.layout
 
     def get_or_parse_job(

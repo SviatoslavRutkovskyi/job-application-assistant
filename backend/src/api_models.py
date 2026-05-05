@@ -61,6 +61,18 @@ class AnswerQuestionResponse(BaseModel):
     answer: str
 
 
+# --- Resume upload ---
+
+class ResumeUploadResponse(BaseModel):
+    personal: UserProfile
+    candidate: CandidateProfile
+    experience_count: int
+    education_count: int
+    projects_count: int
+    skills_count: int
+    certificates_count: int
+
+
 # --- Profile endpoints ---
 
 class ProfileExistsResponse(BaseModel):
