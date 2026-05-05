@@ -59,7 +59,7 @@ def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> Annotate
             )
             for i, cat in enumerate(candidate.skills, start=1)
         ],
-        experiences=[
+        experience=[
             AnnotatedExperience(
                 id=i, line_cost=estimates["experience_item_line"],
                 bullet_points=annotate_bullets(exp.bullet_points),
@@ -76,6 +76,87 @@ def annotate_candidate(candidate: CandidateProfile, estimates: dict) -> Annotate
             for i, proj in enumerate(candidate.projects, start=1)
         ],
     )
+
+
+def _build_cost_maps(ac: AnnotatedCandidate) -> tuple:
+    """Build cost-map tuple from a fully annotated candidate."""
+    return (
+        {e.id: e.line_cost for e in ac.education},
+        {c.id: c.line_cost for c in ac.certificates},
+        {s.id: s.line_cost for s in ac.skills},
+        {e.id: e.line_cost for e in ac.experience},
+        {p.id: p.line_cost for p in ac.projects},
+        {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experience},
+        {p.id: {b.id: b.line_cost for b in p.bullet_points} for p in ac.projects},
+    )
+
+
+def _count_lines(resume_data: ResumeData, ac: AnnotatedCandidate, cost_maps: tuple, estimates: dict) -> float:
+    """Core line-count arithmetic. Used by both the tailoring loop and full-content counting."""
+    edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs = cost_maps
+    H = ac.section_heading_line
+    chars_per_line = estimates["chars_per_line"]
+
+    total = H + math.ceil(len(resume_data.profile) / chars_per_line)
+
+    flat_sections = [
+        (resume_data.selected_education_ids,                        edu_costs),
+        (resume_data.selected_certificate_ids,                      cert_costs),
+        ([sel.category_id for sel in resume_data.selected_skills],  skill_costs),
+    ]
+    for ids, cost_map in flat_sections:
+        if ids:
+            total += H + sum(cost_map.get(i, 0) for i in ids)
+
+    if resume_data.selected_experiences:
+        total += H
+        for se in resume_data.selected_experiences:
+            total += exp_costs.get(se.experience_id, 0)
+            total += sum(exp_bullet_costs.get(se.experience_id, {}).get(bid, 0) for bid in se.bullet_ids)
+
+    if resume_data.selected_projects:
+        total += H
+        for sp in resume_data.selected_projects:
+            total += proj_costs.get(sp.project_id, 0)
+            total += sum(proj_bullet_costs.get(sp.project_id, {}).get(bid, 0) for bid in sp.bullet_ids)
+
+    return total
+
+
+def build_full_resume_selection(
+    candidate: CandidateProfile,
+    estimates: dict,
+    layout: ResumeLayoutConfig | None = None,
+) -> tuple[AnnotatedCandidate, ResumeData, float]:
+    """Annotate the entire candidate (all IDs selected, no AI), apply layout, and return
+    (annotated_candidate, resume_data, total_lines).  Used by export_full_resume and the
+    line-count endpoint — single source of truth for full-content line counting."""
+    ac = annotate_candidate(candidate, estimates)
+    if layout is not None:
+        ac = _apply_layout_filter(ac, layout)
+
+    resume_data = ResumeData(
+        profile=candidate.profile,
+        selected_education_ids=[e.id for e in ac.education],
+        selected_certificate_ids=[c.id for c in ac.certificates],
+        selected_skills=[
+            SelectedSkillsCategory(category_id=cat.id, skill_ids=[s.id for s in cat.skills])
+            for cat in ac.skills
+        ],
+        selected_experiences=[
+            SelectedExperience(experience_id=exp.id, bullet_ids=[b.id for b in exp.bullet_points])
+            for exp in ac.experience
+        ],
+        selected_projects=[
+            SelectedProject(project_id=proj.id, bullet_ids=[b.id for b in proj.bullet_points])
+            for proj in ac.projects
+        ],
+        estimated_resume_lines=0,
+    )
+
+    cost_maps = _build_cost_maps(ac)
+    total_lines = _count_lines(resume_data, ac, cost_maps, estimates)
+    return ac, resume_data, total_lines
 
 
 def _apply_layout_filter(ac: AnnotatedCandidate, layout: ResumeLayoutConfig) -> AnnotatedCandidate:
@@ -148,15 +229,7 @@ class Resume:
             annotated_candidate = _apply_layout_filter(annotated_candidate, layout)
 
         ac = annotated_candidate
-        edu_costs   = {e.id: e.line_cost for e in ac.education}
-        cert_costs  = {c.id: c.line_cost for c in ac.certificates}
-        skill_costs = {s.id: s.line_cost for s in ac.skills}
-        exp_costs   = {e.id: e.line_cost for e in ac.experience}
-        proj_costs  = {p.id: p.line_cost for p in ac.projects}
-        exp_bullet_costs  = {e.id: {b.id: b.line_cost for b in e.bullet_points} for e in ac.experience}
-        proj_bullet_costs = {p.id: {b.id: b.line_cost for b in p.bullet_points} for p in ac.projects}
-
-        cost_maps = (edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs)
+        cost_maps = _build_cost_maps(ac)
         system_prompt = self._build_system_prompt(annotated_candidate, user_profile)
 
         start_time = time.time()
@@ -254,41 +327,10 @@ class Resume:
         layout: ResumeLayoutConfig | None = None,
     ) -> str | None:
         """Compile a PDF containing every section and bullet — no AI selection, no page-fit loop."""
-        annotated_candidate = annotate_candidate(candidate, self._line_estimates)
-        if layout is not None:
-            annotated_candidate = _apply_layout_filter(annotated_candidate, layout)
-        ac = annotated_candidate
-
-        resume_data = ResumeData(
-            profile=candidate.profile,
-            selected_education_ids=[e.id for e in ac.education],
-            selected_certificate_ids=[c.id for c in ac.certificates],
-            selected_skills=[
-                SelectedSkillsCategory(
-                    category_id=cat.id,
-                    skill_ids=[s.id for s in cat.skills],
-                )
-                for cat in ac.skills
-            ],
-            selected_experiences=[
-                SelectedExperience(
-                    experience_id=exp.id,
-                    bullet_ids=[b.id for b in exp.bullet_points],
-                )
-                for exp in ac.experience
-            ],
-            selected_projects=[
-                SelectedProject(
-                    project_id=proj.id,
-                    bullet_ids=[b.id for b in proj.bullet_points],
-                )
-                for proj in ac.projects
-            ],
-            estimated_resume_lines=0,
-        )
+        ac, resume_data, _ = build_full_resume_selection(candidate, self._line_estimates, layout)
 
         latex_content = self.latex_generator.convert_to_latex(
-            annotated_candidate, user_profile, resume_data, layout=layout
+            ac, user_profile, resume_data, layout=layout
         )
         if latex_content is None:
             logger.error("Failed to create LaTeX for full resume export")
@@ -320,34 +362,20 @@ class Resume:
         return blob_name
 
     def calculate_resume_lines(self, resume_data: ResumeData, annotated_candidate, cost_maps: tuple) -> float:
-        edu_costs, cert_costs, skill_costs, exp_costs, proj_costs, exp_bullet_costs, proj_bullet_costs = cost_maps
-        H = annotated_candidate.section_heading_line
-        chars_per_line = self._line_estimates["chars_per_line"]
+        return _count_lines(resume_data, annotated_candidate, cost_maps, self._line_estimates)
 
-        total = H + math.ceil(len(resume_data.profile) / chars_per_line)
+    def full_line_count(self, candidate: CandidateProfile, layout: ResumeLayoutConfig | None = None) -> float:
+        """Return the total line count for the candidate's entire content (all sections, all bullets).
+        Used by the profile line-count endpoint — no AI involved."""
+        _, _, lines = build_full_resume_selection(candidate, self._line_estimates, layout)
+        return lines
 
-        flat_sections = [
-            (resume_data.selected_education_ids,                        edu_costs),
-            (resume_data.selected_certificate_ids,                      cert_costs),
-            ([sel.category_id for sel in resume_data.selected_skills],  skill_costs),
-        ]
-        for ids, cost_map in flat_sections:
-            if ids:
-                total += H + sum(cost_map.get(i, 0) for i in ids)
-
-        if resume_data.selected_experiences:
-            total += H
-            for se in resume_data.selected_experiences:
-                total += exp_costs.get(se.experience_id, 0)
-                total += sum(exp_bullet_costs.get(se.experience_id, {}).get(bid, 0) for bid in se.bullet_ids)
-
-        if resume_data.selected_projects:
-            total += H
-            for sp in resume_data.selected_projects:
-                total += proj_costs.get(sp.project_id, 0)
-                total += sum(proj_bullet_costs.get(sp.project_id, {}).get(bid, 0) for bid in sp.bullet_ids)
-
-        return total
+    @property
+    def line_thresholds(self) -> dict:
+        return {
+            "min_lines": self._line_estimates["min_page_lines"],
+            "max_lines": self._line_estimates["max_page_lines"],
+        }
 
     def _build_system_prompt(self, annotated_candidate, user_profile: UserProfile) -> str:
         candidate_dict = annotated_candidate.model_dump(

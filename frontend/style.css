@@ -120,6 +120,28 @@ header {
   }
 }
 
+/* ── Profile inline status (action bar) ── */
+.profile-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 12px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.profile-status--error {
+  color: var(--danger);
+}
+.profile-status--warn {
+  color: var(--warn);
+}
+.profile-status-link {
+  font-weight: 600;
+  text-decoration: underline;
+  color: inherit;
+}
+
 /* ── Action bar ── */
 .action-bar {
   background: var(--surface);

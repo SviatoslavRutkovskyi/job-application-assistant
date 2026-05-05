@@ -8,6 +8,59 @@ let state = {
 
 let activeRequests = new Set();
 let parsePromise = null;
+let profileState = { blocked: false };
+
+// ── Profile content check ──
+const ACTION_BTN_IDS_LIST = ["btn-cover-letter", "btn-resume", "btn-answer"];
+
+async function checkProfileContent() {
+  try {
+    const { lines, min_lines } = await apiCall(
+      "GET",
+      "/api/v1/profile/line-count",
+    );
+    const status = document.getElementById("profile-status");
+    const statusText = document.getElementById("profile-status-text");
+
+    if (lines < min_lines) {
+      profileState.blocked = true;
+      statusText.textContent = "⚠ Not enough profile content to generate.";
+      status.className = "profile-status profile-status--error";
+      status.style.display = "";
+      ACTION_BTN_IDS_LIST.forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.disabled = true;
+          btn.classList.add("profile-blocked");
+        }
+      });
+    } else if (lines < min_lines * 1.5) {
+      profileState.blocked = false;
+      statusText.textContent = "Limited content — results may be sparse.";
+      status.className = "profile-status profile-status--warn";
+      status.style.display = "";
+      ACTION_BTN_IDS_LIST.forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove("profile-blocked");
+        }
+      });
+    } else {
+      profileState.blocked = false;
+      status.style.display = "none";
+      ACTION_BTN_IDS_LIST.forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove("profile-blocked");
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("Profile content check failed:", e);
+  }
+}
 
 // ── Tab switching ──
 function switchTab(name) {
@@ -105,6 +158,10 @@ async function getOrParseJob(jobText) {
 
 // ── Main action runner ──
 async function runAction(action) {
+  if (profileState.blocked) {
+    toast("Complete your profile before generating documents.", "error");
+    return;
+  }
   if (activeRequests.has(action)) return;
   activeRequests.add(action);
 

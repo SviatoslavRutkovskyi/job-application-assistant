@@ -1316,6 +1316,77 @@
         "certificates",
       ];
 
+      function ProgressBar({ lines, minLines }) {
+        const pct = minLines > 0 ? (lines / minLines) * 100 : 0;
+        const tier = Math.floor(pct / 100);
+        const overflowPct = pct % 100;
+        // tier 0=red, 1=green, 2=blue, 3+=yellow
+        const colors = [
+          "var(--danger)",
+          "var(--accent)",
+          "#3b82f6",
+          "var(--warn)",
+        ];
+        const baseColor = colors[Math.min(tier, 3)];
+        const nextColor = colors[Math.min(tier + 1, 3)];
+        return (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "auto",
+              paddingLeft: "16px",
+              paddingRight: "8px",
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                width: "140px",
+                height: "6px",
+                background: "var(--border)",
+                borderRadius: "99px",
+                flexShrink: 0,
+              }}
+            >
+              {tier >= 1 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: baseColor,
+                    borderRadius: "99px",
+                  }}
+                />
+              )}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: (tier === 0 ? Math.min(pct, 100) : overflowPct) + "%",
+                  background: tier === 0 ? baseColor : nextColor,
+                  borderRadius: "99px",
+                  transition: "width 0.4s ease, background 0.4s ease",
+                }}
+              />
+            </div>
+            <span
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: "11px",
+                color: "var(--text-2)",
+                flexShrink: 0,
+              }}
+            >
+              {Math.round(pct)}%
+            </span>
+          </div>
+        );
+      }
+
       function ResumeSettingsSection({ data, onChange }) {
         const [exporting, setExporting] = React.useState(false);
         const order = data;
@@ -1521,6 +1592,16 @@
         const [layout, setLayout] = useState(DEFAULT_LAYOUT_ORDER);
         const [loading, setLoading] = useState(true);
         const [saving, setSaving] = useState(false);
+        const [lineCount, setLineCount] = useState({ lines: 0, min_lines: 53 });
+
+        async function refreshLineCount() {
+          try {
+            const data = await apiFetch("GET", "/api/v1/profile/line-count");
+            if (data) setLineCount(data);
+          } catch (e) {
+            /* non-fatal */
+          }
+        }
 
         const snap = useRef({ personal, candidate, summary, layout, tab });
         useEffect(() => {
@@ -1555,6 +1636,7 @@
             // non-fatal — default order is already set
           }
           setLoading(false);
+          refreshLineCount();
         }
 
         async function save() {
@@ -1586,6 +1668,7 @@
               );
             }
             toast("Saved", "success");
+            refreshLineCount();
           } catch (e) {
             toast("Save failed: " + e.message, "error");
           } finally {
@@ -1685,6 +1768,10 @@
                   {badge(t)}
                 </button>
               ))}
+              <ProgressBar
+                lines={lineCount.lines}
+                minLines={lineCount.min_lines}
+              />
             </div>
 
             <main className="profile-main">

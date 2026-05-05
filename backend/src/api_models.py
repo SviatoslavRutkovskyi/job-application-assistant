@@ -67,6 +67,12 @@ class ProfileExistsResponse(BaseModel):
     exists: bool
 
 
+class ProfileLineCountResponse(BaseModel):
+    lines: float
+    min_lines: float
+    max_lines: float
+
+
 class ProfileResponse(BaseModel):
     personal: UserProfile
     candidate: CandidateProfile

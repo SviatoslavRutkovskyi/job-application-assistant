@@ -49,6 +49,12 @@
         <div class="spinner"></div>
         <span class="btn-label">Answer Question</span>
       </button>
+      <div id="profile-status" style="display: none" class="profile-status">
+        <span id="profile-status-text"></span>
+        <a href="/frontend/profile-setup.html" class="profile-status-link"
+          >Edit profile &rarr;</a
+        >
+      </div>
     </div>
 
     <!-- Tab bar -->
@@ -221,9 +227,10 @@
     <script src="/frontend/auth.js" defer></script>
     <script src="/frontend/app.js" defer></script>
     <script defer>
-      document.addEventListener("DOMContentLoaded", () =>
-        requireAuthAndProfile(),
-      );
+      document.addEventListener("DOMContentLoaded", async () => {
+        await requireAuthAndProfile();
+        await checkProfileContent();
+      });
     </script>
   </body>
 </html>

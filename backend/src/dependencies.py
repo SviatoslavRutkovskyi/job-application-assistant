@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request, status
 
 from core.cover_letter import CoverLetter
 from core.job_processor import JobProcessor
@@ -154,11 +154,22 @@ def get_services(request: Request) -> ApplicationServices:
     return request.app.state.services
 
 
+def _validate_user_profile(user_profile: UserProfile) -> None:
+    """Raise ValueError if the minimum required personal info is missing.
+    Only name is strictly required — the LaTeX header renders it unconditionally."""
+    if not user_profile.name or not user_profile.name.strip():
+        raise ValueError(
+            "Your profile is missing a name. "
+            "Add your name in profile setup before generating documents."
+        )
+
+
 def _load_user_profile(
     services: ApplicationServices, user_id: str
 ) -> tuple[CandidateProfile, UserProfile, PersonalSummary]:
     """Load and validate all three profile blobs for the authenticated user.
-    Raises 400 if any file is missing — directs the user to complete profile setup.
+    Raises ValueError if any file is missing or the candidate profile has no content.
+    ValueError is caught by the global value_error_handler and returned as HTTP 400.
     All three blobs are fetched in parallel to reduce latency.
     """
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -166,15 +177,21 @@ def _load_user_profile(
         f_candidate = executor.submit(services.user_data.load, user_id, "candidate.json")
         f_summary   = executor.submit(services.user_data.load, user_id, "personal_summary.json")
 
-    personal_raw        = f_personal.result()
-    candidate_raw       = f_candidate.result()
+    personal_raw         = f_personal.result()
+    candidate_raw        = f_candidate.result()
     personal_summary_raw = f_summary.result()
 
     if any(raw is None for raw in (personal_raw, candidate_raw, personal_summary_raw)):
-        raise ValueError("Profile setup incomplete. Upload all three profile files before using the app.")
+        raise ValueError(
+            "Profile setup is incomplete. Complete all profile sections before generating documents."
+        )
+
+    candidate = CandidateProfile.model_validate(candidate_raw)
+    user_profile = UserProfile.model_validate(personal_raw)
+    _validate_user_profile(user_profile)
 
     return (
-        CandidateProfile.model_validate(candidate_raw),
+        candidate,
         UserProfile.model_validate(personal_raw),
         PersonalSummary.model_validate(personal_summary_raw),
     )
