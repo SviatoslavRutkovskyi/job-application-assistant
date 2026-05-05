@@ -188,11 +188,10 @@ def _load_user_profile(
 
     candidate = CandidateProfile.model_validate(candidate_raw)
     user_profile = UserProfile.model_validate(personal_raw)
-    _validate_user_profile(user_profile)
 
     return (
         candidate,
-        UserProfile.model_validate(personal_raw),
+        user_profile,
         PersonalSummary.model_validate(personal_summary_raw),
     )
 

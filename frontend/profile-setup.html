@@ -392,7 +392,7 @@
 
       // ── Tab sections ──────────────────────────────────────────────────────────
 
-      function PersonalSection({ data, onChange }) {
+      function PersonalSection({ data, onChange, editing, onEdit, onDone }) {
         const set = (field) => (e) =>
           onChange({ ...data, [field]: e.target.value });
         return (
@@ -401,22 +401,41 @@
               Contact information rendered in your resume header.
             </p>
             <div className="card">
-              <div className="card-body">
+              <div className="card-header">
+                <span>Personal Info</span>
+                {editing ? (
+                  <button className="btn btn-sm btn-primary" onClick={onDone}>
+                    Done
+                  </button>
+                ) : (
+                  <button className="btn btn-sm" onClick={onEdit}>
+                    Edit
+                  </button>
+                )}
+              </div>
+              <div className={`card-body${editing ? "" : " section-locked"}`}>
                 <div className="form-row">
-                  <Fg label="Full Name *">
+                  <Fg
+                    label="Full Name *"
+                    hint="Required — unlocks all other sections"
+                  >
                     <input
                       type="text"
-                      value={data.name}
+                      value={editing ? data.name : data.name || "—"}
                       onChange={set("name")}
-                      placeholder="Full Name"
+                      placeholder={editing ? "Full Name" : ""}
+                      disabled={!editing}
                     />
                   </Fg>
                   <Fg label="Location">
                     <input
                       type="text"
-                      value={data.location || ""}
+                      value={
+                        editing ? data.location || "" : data.location || "—"
+                      }
                       onChange={set("location")}
-                      placeholder="City, ST"
+                      placeholder={editing ? "City, ST" : ""}
+                      disabled={!editing}
                     />
                   </Fg>
                 </div>
@@ -424,17 +443,19 @@
                   <Fg label="Email">
                     <input
                       type="text"
-                      value={data.email || ""}
+                      value={editing ? data.email || "" : data.email || "—"}
                       onChange={set("email")}
-                      placeholder="your@email.com"
+                      placeholder={editing ? "your@email.com" : ""}
+                      disabled={!editing}
                     />
                   </Fg>
                   <Fg label="Phone">
                     <input
                       type="text"
-                      value={data.phone || ""}
+                      value={editing ? data.phone || "" : data.phone || "—"}
                       onChange={set("phone")}
-                      placeholder="+1 (555) 000-0000"
+                      placeholder={editing ? "+1 (555) 000-0000" : ""}
+                      disabled={!editing}
                     />
                   </Fg>
                 </div>
@@ -442,9 +463,16 @@
                   <Fg label="LinkedIn URL">
                     <input
                       type="text"
-                      value={data.linkedin_url || ""}
+                      value={
+                        editing
+                          ? data.linkedin_url || ""
+                          : data.linkedin_url || "—"
+                      }
                       onChange={set("linkedin_url")}
-                      placeholder="https://linkedin.com/in/handle"
+                      placeholder={
+                        editing ? "https://linkedin.com/in/handle" : ""
+                      }
+                      disabled={!editing}
                     />
                   </Fg>
                   <Fg
@@ -453,9 +481,14 @@
                   >
                     <input
                       type="text"
-                      value={data.linkedin_label || ""}
+                      value={
+                        editing
+                          ? data.linkedin_label || ""
+                          : data.linkedin_label || "—"
+                      }
                       onChange={set("linkedin_label")}
-                      placeholder="linkedin.com/in/handle"
+                      placeholder={editing ? "linkedin.com/in/handle" : ""}
+                      disabled={!editing}
                     />
                   </Fg>
                 </div>
@@ -465,7 +498,7 @@
         );
       }
 
-      function ProfileSection({ data, onChange }) {
+      function ProfileSection({ data, onChange, editing, onEdit, onDone }) {
         return (
           <div>
             <p className="section-desc">
@@ -474,15 +507,32 @@
               bring.
             </p>
             <div className="card">
-              <div className="card-body">
+              <div className="card-header">
+                <span>Profile Summary</span>
+                {editing ? (
+                  <button className="btn btn-sm btn-primary" onClick={onDone}>
+                    Done
+                  </button>
+                ) : (
+                  <button className="btn btn-sm" onClick={onEdit}>
+                    Edit
+                  </button>
+                )}
+              </div>
+              <div className={`card-body${editing ? "" : " section-locked"}`}>
                 <Fg label="Profile Paragraph">
                   <textarea
                     rows={6}
-                    value={data.profile}
+                    value={editing ? data.profile : data.profile || "—"}
                     onChange={(e) =>
                       onChange({ ...data, profile: e.target.value })
                     }
-                    placeholder="Software engineer with X years of experience in..."
+                    placeholder={
+                      editing
+                        ? "Software engineer with X years of experience in..."
+                        : ""
+                    }
+                    disabled={!editing}
                   />
                 </Fg>
               </div>
@@ -491,12 +541,16 @@
         );
       }
 
-      function EducationSection({ data, onChange }) {
+      function EducationSection({ data, onChange, onSave }) {
         const [editingId, setEditingId] = useState(null);
 
+        const handleEdit = (id) => {
+          if (editingId !== null && editingId !== id) onSave(data);
+          setEditingId(id);
+        };
         const add = () => {
           const newId = uid();
-          onChange({
+          const newData = {
             ...data,
             education: [
               ...data.education,
@@ -511,15 +565,18 @@
                 location: "",
               },
             ],
-          });
+          };
+          onChange(newData);
           setEditingId(newId);
         };
         const remove = (id) => {
-          onChange({
+          const newData = {
             ...data,
             education: data.education.filter((e) => e._id !== id),
-          });
+          };
+          onChange(newData);
           if (editingId === id) setEditingId(null);
+          onSave(newData);
         };
         const update = (id, field, val) =>
           onChange({
@@ -542,8 +599,11 @@
                 key={edu._id}
                 id={edu._id}
                 editingId={editingId}
-                onEdit={setEditingId}
-                onDone={() => setEditingId(null)}
+                onEdit={handleEdit}
+                onDone={() => {
+                  setEditingId(null);
+                  onSave(data);
+                }}
                 onDelete={() => remove(edu._id)}
                 viewContent={
                   <div>
@@ -635,9 +695,13 @@
         );
       }
 
-      function ExpSection({ data, onChange }) {
+      function ExpSection({ data, onChange, onSave }) {
         const [editingId, setEditingId] = useState(null);
 
+        const handleEdit = (id) => {
+          if (editingId !== null && editingId !== id) onSave(data);
+          setEditingId(id);
+        };
         const addExp = () => {
           const newId = uid();
           onChange({
@@ -659,11 +723,13 @@
           setEditingId(newId);
         };
         const removeExp = (id) => {
-          onChange({
+          const newData = {
             ...data,
             experience: data.experience.filter((e) => e._id !== id),
-          });
+          };
+          onChange(newData);
           if (editingId === id) setEditingId(null);
+          onSave(newData);
         };
         const updateExp = (id, field, val) =>
           onChange({
@@ -727,8 +793,11 @@
                 key={exp._id}
                 id={exp._id}
                 editingId={editingId}
-                onEdit={setEditingId}
-                onDone={() => setEditingId(null)}
+                onEdit={handleEdit}
+                onDone={() => {
+                  setEditingId(null);
+                  onSave(data);
+                }}
                 onDelete={() => removeExp(exp._id)}
                 viewContent={
                   <div>
@@ -817,9 +886,13 @@
         );
       }
 
-      function ProjectsSection({ data, onChange }) {
+      function ProjectsSection({ data, onChange, onSave }) {
         const [editingId, setEditingId] = useState(null);
 
+        const handleEdit = (id) => {
+          if (editingId !== null && editingId !== id) onSave(data);
+          setEditingId(id);
+        };
         const addProject = () => {
           const newId = uid();
           onChange({
@@ -838,11 +911,13 @@
           setEditingId(newId);
         };
         const removeProject = (id) => {
-          onChange({
+          const newData = {
             ...data,
             projects: data.projects.filter((p) => p._id !== id),
-          });
+          };
+          onChange(newData);
           if (editingId === id) setEditingId(null);
+          onSave(newData);
         };
         const updateProject = (id, field, val) =>
           onChange({
@@ -945,8 +1020,11 @@
                 key={proj._id}
                 id={proj._id}
                 editingId={editingId}
-                onEdit={setEditingId}
-                onDone={() => setEditingId(null)}
+                onEdit={handleEdit}
+                onDone={() => {
+                  setEditingId(null);
+                  onSave(data);
+                }}
                 onDelete={() => removeProject(proj._id)}
                 viewContent={
                   <div>
@@ -1047,9 +1125,13 @@
         );
       }
 
-      function SkillsSection({ data, onChange }) {
+      function SkillsSection({ data, onChange, onSave }) {
         const [editingId, setEditingId] = useState(null);
 
+        const handleEdit = (id) => {
+          if (editingId !== null && editingId !== id) onSave(data);
+          setEditingId(id);
+        };
         const addCat = () => {
           const newId = uid();
           onChange({
@@ -1059,11 +1141,13 @@
           setEditingId(newId);
         };
         const removeCat = (id) => {
-          onChange({
+          const newData = {
             ...data,
             skills: data.skills.filter((s) => s._id !== id),
-          });
+          };
+          onChange(newData);
           if (editingId === id) setEditingId(null);
+          onSave(newData);
         };
         const updateName = (id, name) =>
           onChange({
@@ -1092,8 +1176,11 @@
                 key={cat._id}
                 id={cat._id}
                 editingId={editingId}
-                onEdit={setEditingId}
-                onDone={() => setEditingId(null)}
+                onEdit={handleEdit}
+                onDone={() => {
+                  setEditingId(null);
+                  onSave(data);
+                }}
                 onDelete={() => removeCat(cat._id)}
                 viewContent={
                   <SkillViewRow name={cat.name} skills={cat.skills} />
@@ -1125,9 +1212,13 @@
         );
       }
 
-      function CertSection({ data, onChange }) {
+      function CertSection({ data, onChange, onSave }) {
         const [editingId, setEditingId] = useState(null);
 
+        const handleEdit = (id) => {
+          if (editingId !== null && editingId !== id) onSave(data);
+          setEditingId(id);
+        };
         const add = () => {
           const newId = uid();
           onChange({
@@ -1140,11 +1231,13 @@
           setEditingId(newId);
         };
         const remove = (id) => {
-          onChange({
+          const newData = {
             ...data,
             certificates: data.certificates.filter((c) => c._id !== id),
-          });
+          };
+          onChange(newData);
           if (editingId === id) setEditingId(null);
+          onSave(newData);
         };
         const update = (id, field, val) =>
           onChange({
@@ -1167,8 +1260,11 @@
                 key={cert._id}
                 id={cert._id}
                 editingId={editingId}
-                onEdit={setEditingId}
-                onDone={() => setEditingId(null)}
+                onEdit={handleEdit}
+                onDone={() => {
+                  setEditingId(null);
+                  onSave(data);
+                }}
                 onDelete={() => remove(cert._id)}
                 viewContent={
                   <div>
@@ -1219,9 +1315,13 @@
         );
       }
 
-      function SummarySection({ data, onChange }) {
+      function SummarySection({ data, onChange, onSave }) {
         const [editingId, setEditingId] = useState(null);
 
+        const handleEdit = (id) => {
+          if (editingId !== null && editingId !== id) onSave(data);
+          setEditingId(id);
+        };
         const add = () => {
           const newId = uid();
           onChange({
@@ -1230,8 +1330,10 @@
           setEditingId(newId);
         };
         const remove = (id) => {
-          onChange({ topics: data.topics.filter((t) => t._id !== id) });
+          const newData = { topics: data.topics.filter((t) => t._id !== id) };
+          onChange(newData);
           if (editingId === id) setEditingId(null);
+          onSave(newData);
         };
         const update = (id, field, val) =>
           onChange({
@@ -1256,8 +1358,11 @@
                 key={t._id}
                 id={t._id}
                 editingId={editingId}
-                onEdit={setEditingId}
-                onDone={() => setEditingId(null)}
+                onEdit={handleEdit}
+                onDone={() => {
+                  setEditingId(null);
+                  onSave(data);
+                }}
                 onDelete={() => remove(t._id)}
                 viewContent={
                   <div>
@@ -1299,6 +1404,28 @@
       }
 
       // ── Resume Settings tab ───────────────────────────────────────────────────
+      // ── Section validation ────────────────────────────────────────────────────
+      // Each key is a tab name. The function receives that tab's data and returns
+      // an array of error strings (empty = valid). Adding a required field to any
+      // section means adding one entry here — enforcement is automatic everywhere.
+      const SECTION_VALIDATORS = {
+        personal: (data) => (data.name.trim() ? [] : ["Name is required."]),
+      };
+
+      // Returns the data object relevant to a given tab.
+      function getTabData(tabName, { personal, candidate, summary, layout }) {
+        if (tabName === "personal") return personal;
+        if (tabName === "summary") return summary;
+        if (tabName === "resume_settings") return layout;
+        return candidate;
+      }
+
+      // Runs the validator for tabName (if any) and returns an array of error strings.
+      function validateTab(tabName, allData) {
+        const validator = SECTION_VALIDATORS[tabName];
+        return validator ? validator(getTabData(tabName, allData)) : [];
+      }
+
       const SECTION_LABELS = {
         profile: "Profile Summary",
         education: "Education",
@@ -1593,6 +1720,23 @@
         const [loading, setLoading] = useState(true);
         const [saving, setSaving] = useState(false);
         const [lineCount, setLineCount] = useState({ lines: 0, min_lines: 53 });
+        const [personalEditing, setPersonalEditing] = useState(false);
+        const [profileEditing, setProfileEditing] = useState(false);
+
+        const snap = useRef({
+          personal,
+          candidate,
+          summary,
+          layout,
+          tab,
+          loading,
+        });
+        useEffect(() => {
+          snap.current = { personal, candidate, summary, layout, tab, loading };
+        }, [personal, candidate, summary, layout, tab, loading]);
+        useEffect(() => {
+          init();
+        }, []);
 
         async function refreshLineCount() {
           try {
@@ -1603,13 +1747,57 @@
           }
         }
 
-        const snap = useRef({ personal, candidate, summary, layout, tab });
-        useEffect(() => {
-          snap.current = { personal, candidate, summary, layout, tab };
-        }, [personal, candidate, summary, layout, tab]);
-        useEffect(() => {
-          init();
-        }, []);
+        // ── Save helpers ──────────────────────────────────────────────────────
+
+        async function saveCandidateData(data, silent = false) {
+          await apiFetch("PUT", "/api/v1/profile/candidate", toCandidate(data));
+          if (!silent) toast("Saved", "success");
+          refreshLineCount();
+        }
+
+        async function savePersonalData(data, silent = false) {
+          await apiFetch("PUT", "/api/v1/profile/personal", data);
+          if (!silent) toast("Saved", "success");
+        }
+
+        async function saveSummaryData(data, silent = false) {
+          await apiFetch("PUT", "/api/v1/profile/personal-summary", {
+            topics: data.topics.map(({ _id, ...rest }) => rest),
+          });
+          if (!silent) toast("Saved", "success");
+        }
+
+        async function saveLayoutData(data) {
+          await apiFetch("PUT", "/api/v1/profile/layout", {
+            section_order: data,
+          });
+        }
+
+        // Silently commit the current tab before navigation. Guards against loading state.
+        async function commitCurrent() {
+          const {
+            tab: t,
+            personal: p,
+            candidate: c,
+            summary: s,
+            layout: l,
+            loading: isLoading,
+          } = snap.current;
+          if (isLoading) return;
+          if (
+            validateTab(t, { personal: p, candidate: c, summary: s, layout: l })
+              .length > 0
+          )
+            return;
+          try {
+            if (t === "personal") await savePersonalData(p, true);
+            else if (t === "summary") await saveSummaryData(s, true);
+            else if (t === "resume_settings") await saveLayoutData(l);
+            else await saveCandidateData(c, true);
+          } catch (e) {
+            toast("Save failed: " + e.message, "error");
+          }
+        }
 
         async function init() {
           await requireAuth();
@@ -1625,73 +1813,67 @@
                 topics: (raw.topics || []).map((t) => ({ ...t, _id: uid() })),
               });
             }
+            // Auto-open personal edit if name is empty (new user)
+            if (!data?.personal?.name?.trim()) setPersonalEditing(true);
           } catch (e) {
             if (!e.message.includes("404"))
               toast("Could not load profile: " + e.message, "error");
+            setPersonalEditing(true);
           }
           try {
             const layoutData = await apiFetch("GET", "/api/v1/profile/layout");
             if (layoutData?.section_order) setLayout(layoutData.section_order);
           } catch (e) {
-            // non-fatal — default order is already set
+            /* non-fatal */
           }
           setLoading(false);
           refreshLineCount();
         }
 
-        async function save() {
-          if (saving) return;
+        function switchTab(newTab) {
+          commitCurrent().catch(console.error);
+          setPersonalEditing(false);
+          setProfileEditing(false);
+          setTab(newTab);
+        }
+
+        async function goNext() {
           const {
+            tab: t,
             personal: p,
             candidate: c,
             summary: s,
             layout: l,
-            tab: t,
           } = snap.current;
-          setSaving(true);
+          const errors = validateTab(t, {
+            personal: p,
+            candidate: c,
+            summary: s,
+            layout: l,
+          });
+          if (errors.length > 0) {
+            errors.forEach((msg) => toast(msg, "error"));
+            return;
+          }
           try {
-            if (t === "personal") {
-              await apiFetch("PUT", "/api/v1/profile/personal", p);
-            } else if (t === "summary") {
-              await apiFetch("PUT", "/api/v1/profile/personal-summary", {
-                topics: s.topics.map(({ _id, ...rest }) => rest),
-              });
-            } else if (t === "resume_settings") {
-              await apiFetch("PUT", "/api/v1/profile/layout", {
-                section_order: l,
-              });
-            } else {
-              await apiFetch(
-                "PUT",
-                "/api/v1/profile/candidate",
-                toCandidate(c),
-              );
-            }
-            toast("Saved", "success");
-            refreshLineCount();
-          } catch (e) {
-            toast("Save failed: " + e.message, "error");
+            await commitCurrent();
+            const idx = TAB_ORDER.indexOf(snap.current.tab);
+            if (idx < TAB_ORDER.length - 1) setTab(TAB_ORDER[idx + 1]);
+            else window.location.href = "/";
           } finally {
             setSaving(false);
           }
         }
 
-        function switchTab(newTab) {
-          save().catch(console.error);
-          setTab(newTab);
-        }
-
-        async function goNext() {
-          await save();
-          const idx = TAB_ORDER.indexOf(tab);
-          if (idx < TAB_ORDER.length - 1) setTab(TAB_ORDER[idx + 1]);
-          else window.location.href = "/";
-        }
-
         async function goPrev() {
-          await save();
-          const idx = TAB_ORDER.indexOf(tab);
-          if (idx > 0) setTab(TAB_ORDER[idx - 1]);
+          setSaving(true);
+          try {
+            await commitCurrent();
+            const idx = TAB_ORDER.indexOf(snap.current.tab);
+            if (idx > 0) setTab(TAB_ORDER[idx - 1]);
+          } finally {
+            setSaving(false);
+          }
         }
 
         function badge(t) {
@@ -1707,30 +1889,109 @@
           return n ? <span className="tab-badge">{n}</span> : null;
         }
 
+        const tabEnabled = (t) =>
+          t === "personal" ||
+          validateTab("personal", { personal, candidate, summary, layout })
+            .length === 0;
+
         function renderSection() {
+          const saveCand = (d) =>
+            saveCandidateData(d, false).catch((e) =>
+              toast("Save failed: " + e.message, "error"),
+            );
+          const saveSum = (d) =>
+            saveSummaryData(d, false).catch((e) =>
+              toast("Save failed: " + e.message, "error"),
+            );
           switch (tab) {
             case "personal":
-              return <PersonalSection data={personal} onChange={setPersonal} />;
+              return (
+                <PersonalSection
+                  data={personal}
+                  onChange={setPersonal}
+                  editing={personalEditing}
+                  onEdit={() => setPersonalEditing(true)}
+                  onDone={() => {
+                    const errors = validateTab("personal", {
+                      personal,
+                      candidate,
+                      summary,
+                      layout,
+                    });
+                    if (errors.length > 0) {
+                      errors.forEach((msg) => toast(msg, "error"));
+                      return;
+                    }
+                    setPersonalEditing(false);
+                    savePersonalData(personal, false).catch((e) =>
+                      toast("Save failed: " + e.message, "error"),
+                    );
+                  }}
+                />
+              );
             case "profile":
               return (
-                <ProfileSection data={candidate} onChange={setCandidate} />
+                <ProfileSection
+                  data={candidate}
+                  onChange={setCandidate}
+                  editing={profileEditing}
+                  onEdit={() => setProfileEditing(true)}
+                  onDone={() => {
+                    setProfileEditing(false);
+                    saveCandidateData(candidate, false).catch((e) =>
+                      toast("Save failed: " + e.message, "error"),
+                    );
+                  }}
+                />
               );
             case "education":
               return (
-                <EducationSection data={candidate} onChange={setCandidate} />
+                <EducationSection
+                  data={candidate}
+                  onChange={setCandidate}
+                  onSave={saveCand}
+                />
               );
             case "experience":
-              return <ExpSection data={candidate} onChange={setCandidate} />;
+              return (
+                <ExpSection
+                  data={candidate}
+                  onChange={setCandidate}
+                  onSave={saveCand}
+                />
+              );
             case "projects":
               return (
-                <ProjectsSection data={candidate} onChange={setCandidate} />
+                <ProjectsSection
+                  data={candidate}
+                  onChange={setCandidate}
+                  onSave={saveCand}
+                />
               );
             case "skills":
-              return <SkillsSection data={candidate} onChange={setCandidate} />;
+              return (
+                <SkillsSection
+                  data={candidate}
+                  onChange={setCandidate}
+                  onSave={saveCand}
+                />
+              );
             case "certificates":
-              return <CertSection data={candidate} onChange={setCandidate} />;
+              return (
+                <CertSection
+                  data={candidate}
+                  onChange={setCandidate}
+                  onSave={saveCand}
+                />
+              );
             case "summary":
-              return <SummarySection data={summary} onChange={setSummary} />;
+              return (
+                <SummarySection
+                  data={summary}
+                  onChange={setSummary}
+                  onSave={saveSum}
+                />
+              );
             case "resume_settings":
               return (
                 <ResumeSettingsSection data={layout} onChange={setLayout} />
@@ -1747,9 +2008,15 @@
             <header>
               <span className="header-title">job-application-assistant</span>
               <div style={{ display: "flex", gap: "8px" }}>
-                <a className="btn btn-sm" href="/">
-                  ← Back to App
-                </a>
+                <button
+                  className="btn btn-sm"
+                  onClick={async () => {
+                    await commitCurrent();
+                    window.location.href = "/";
+                  }}
+                >
+                  &larr; Back to App
+                </button>
                 <button className="btn btn-sm" onClick={() => signOut()}>
                   Sign Out
                 </button>
@@ -1762,7 +2029,7 @@
                   key={t}
                   className={"tab" + (tab === t ? " active" : "")}
                   onClick={() => switchTab(t)}
-                  disabled={saving}
+                  disabled={saving || !tabEnabled(t)}
                 >
                   {TAB_LABELS[t]}
                   {badge(t)}
@@ -1782,22 +2049,15 @@
                     onClick={goPrev}
                     disabled={saving || loading}
                   >
-                    ← Prev
+                    &larr; Prev
                   </button>
                 )}
-                <button
-                  className="btn btn-sm"
-                  onClick={save}
-                  disabled={saving || loading}
-                >
-                  {saving ? "Saving..." : "Save"}
-                </button>
                 <button
                   className="btn btn-sm btn-primary"
                   onClick={goNext}
                   disabled={saving || loading}
                 >
-                  {isLast ? "Finish" : "Next →"}
+                  {isLast ? "Finish" : "Next \u2192"}
                 </button>
               </div>
 

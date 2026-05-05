@@ -120,6 +120,23 @@ header {
   }
 }
 
+/* ── Locked section (personal / profile view mode) ── */
+.section-locked input:disabled,
+.section-locked textarea:disabled {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding-left: 0;
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  opacity: 1;
+  resize: none;
+  cursor: default;
+}
+.section-locked .form-hint {
+  display: none;
+}
+
 /* ── Profile inline status (action bar) ── */
 .profile-status {
   display: flex;

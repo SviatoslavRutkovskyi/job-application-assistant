@@ -12,7 +12,7 @@ from api_models import (
     TailorResumeBody,
     TailorResumeResponse,
 )
-from dependencies import get_current_user, get_services, _load_user_profile, _load_layout
+from dependencies import get_current_user, get_services, _load_user_profile, _load_layout, _validate_user_profile
 from utils import sanitize_filename
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ def generate_cover_letter(
 ):
     services = get_services(request)
     candidate, user_profile, _ = _load_user_profile(services, user_id)
+    _validate_user_profile(user_profile)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     cover_letter = services.cover_letter_builder.request_letter(
         job_desc, candidate, user_profile
@@ -75,6 +76,7 @@ def tailor_resume(
 ):
     services = get_services(request)
     candidate, user_profile, _ = _load_user_profile(services, user_id)
+    _validate_user_profile(user_profile)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     layout = _load_layout(services, user_id)
     result = services.resume_builder.tailor_resume(
@@ -96,6 +98,7 @@ def export_resume(
 ):
     services = get_services(request)
     candidate, user_profile, _ = _load_user_profile(services, user_id)
+    _validate_user_profile(user_profile)
     layout = _load_layout(services, user_id)
     blob_name = services.resume_builder.export_full_resume(candidate, user_profile, user_id, layout)
     if blob_name is None:
@@ -142,6 +145,7 @@ def answer_question(
         )
     services = get_services(request)
     candidate, user_profile, personal_summary = _load_user_profile(services, user_id)
+    _validate_user_profile(user_profile)
     job_desc = services.get_or_parse_job(body.job_posting, body.job_description)
     answer = services.question_answerer.answer_question(
         job_desc, body.question, candidate, user_profile, personal_summary
