@@ -20,6 +20,7 @@ dependencies = [
     "reportlab>=4.4.4",
     "requests>=2.32.4",
     "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.20",
 ]
 
 [dependency-groups]
