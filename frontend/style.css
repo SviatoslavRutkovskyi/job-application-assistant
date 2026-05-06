@@ -911,8 +911,8 @@ input[type="month"]:disabled {
   flex: 1 1 0%;
   width: 0 !important;
   min-width: 0;
-  min-height: 42px;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
 }
 
 /* ── Profile main — no bottom padding (footer removed) ── */

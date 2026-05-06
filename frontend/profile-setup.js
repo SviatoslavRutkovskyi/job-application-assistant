@@ -19,7 +19,10 @@ async function apiFetch(method, url, body) {
   });
   if (!res.ok) {
     let detail = `Request failed (${res.status})`;
-    try { const j = await res.json(); detail = j.detail || detail; } catch {}
+    try {
+      const j = await res.json();
+      detail = j.detail || detail;
+    } catch {}
     throw new Error(detail);
   }
   if (res.status === 204) return null;
@@ -28,7 +31,20 @@ async function apiFetch(method, url, body) {
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function toMonthInput(str) {
   if (!str || str === "Present") return "";
@@ -56,37 +72,50 @@ function displayRange(start, end, isCurrent) {
 function fromCandidate(data = {}) {
   return {
     profile: data.profile || "",
-    education: (data.education || []).map(e => ({
+    education: (data.education || []).map((e) => ({
       ...e,
       _id: crypto.randomUUID(),
       start_date: toMonthInput(e.start_date),
       end_date: e.end_date === "Present" ? "" : toMonthInput(e.end_date),
       is_current: e.end_date === "Present",
     })),
-    certificates: (data.certificates || []).map(c => ({
+    certificates: (data.certificates || []).map((c) => ({
       ...c,
       _id: crypto.randomUUID(),
       date: toMonthInput(c.date),
     })),
-    skills: (data.skills || []).map(s => ({
+    skills: (data.skills || []).map((s) => ({
       _id: crypto.randomUUID(),
       name: s.name || "",
-      skills: (s.skills || []).map(sk => ({ _id: crypto.randomUUID(), text: sk.text || "" })),
+      skills: (s.skills || []).map((sk) => ({
+        _id: crypto.randomUUID(),
+        text: sk.text || "",
+      })),
     })),
-    experience: (data.experience || []).map(e => ({
+    experience: (data.experience || []).map((e) => ({
       ...e,
       _id: crypto.randomUUID(),
       is_current: e.end_date === "Present",
       start_date: toMonthInput(e.start_date),
       end_date: e.end_date === "Present" ? "" : toMonthInput(e.end_date),
-      bullet_points: (e.bullet_points || []).map(b => ({ _id: crypto.randomUUID(), text: b.text || "" })),
+      bullet_points: (e.bullet_points || []).map((b) => ({
+        _id: crypto.randomUUID(),
+        text: b.text || "",
+      })),
     })),
-    projects: (data.projects || []).map(p => ({
+    projects: (data.projects || []).map((p) => ({
       name: p.name || "",
       _id: crypto.randomUUID(),
       date: toMonthInput(p.date),
-      github_links: (p.github_links || []).map(l => ({ _id: crypto.randomUUID(), name: l.name || "", url: l.url || "" })),
-      bullet_points: (p.bullet_points || []).map(b => ({ _id: crypto.randomUUID(), text: b.text || "" })),
+      github_links: (p.github_links || []).map((l) => ({
+        _id: crypto.randomUUID(),
+        name: l.name || "",
+        url: l.url || "",
+      })),
+      bullet_points: (p.bullet_points || []).map((b) => ({
+        _id: crypto.randomUUID(),
+        text: b.text || "",
+      })),
     })),
   };
 }
@@ -94,11 +123,13 @@ function fromCandidate(data = {}) {
 function toCandidate(state) {
   return {
     profile: state.profile,
-    education: state.education.map(({ _id, is_current, start_date, end_date, ...e }) => ({
-      ...e,
-      start_date: fromMonthInput(start_date),
-      end_date: is_current ? "Present" : fromMonthInput(end_date),
-    })),
+    education: state.education.map(
+      ({ _id, is_current, start_date, end_date, ...e }) => ({
+        ...e,
+        start_date: fromMonthInput(start_date),
+        end_date: is_current ? "Present" : fromMonthInput(end_date),
+      }),
+    ),
     certificates: state.certificates.map(({ _id, date, ...c }) => ({
       ...c,
       date: fromMonthInput(date),
@@ -107,18 +138,22 @@ function toCandidate(state) {
       name,
       skills: skills.map(({ _id, text }) => ({ text })),
     })),
-    experience: state.experience.map(({ _id, is_current, start_date, end_date, bullet_points, ...e }) => ({
-      ...e,
-      start_date: fromMonthInput(start_date),
-      end_date: is_current ? "Present" : fromMonthInput(end_date),
-      bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
-    })),
-    projects: state.projects.map(({ _id, date, github_links, bullet_points, ...p }) => ({
-      ...p,
-      date: fromMonthInput(date),
-      github_links: github_links.map(({ _id, ...l }) => l),
-      bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
-    })),
+    experience: state.experience.map(
+      ({ _id, is_current, start_date, end_date, bullet_points, ...e }) => ({
+        ...e,
+        start_date: fromMonthInput(start_date),
+        end_date: is_current ? "Present" : fromMonthInput(end_date),
+        bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
+      }),
+    ),
+    projects: state.projects.map(
+      ({ _id, date, github_links, bullet_points, ...p }) => ({
+        ...p,
+        date: fromMonthInput(date),
+        github_links: github_links.map(({ _id, ...l }) => l),
+        bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
+      }),
+    ),
   };
 }
 
@@ -156,23 +191,28 @@ function useEditingId(data, onSave) {
 // Eliminates the six copy-pasted bullet handlers in ExpSection / ProjectsSection.
 function makeBulletHandlers(items, onChange) {
   const updateItem = (itemId, fn) =>
-    onChange(items.map(item => item._id === itemId ? fn(item) : item));
+    onChange(items.map((item) => (item._id === itemId ? fn(item) : item)));
 
   return {
     addBullet: (itemId) =>
-      updateItem(itemId, item => ({
+      updateItem(itemId, (item) => ({
         ...item,
-        bullet_points: [...item.bullet_points, { _id: crypto.randomUUID(), text: "" }],
+        bullet_points: [
+          ...item.bullet_points,
+          { _id: crypto.randomUUID(), text: "" },
+        ],
       })),
     removeBullet: (itemId, bId) =>
-      updateItem(itemId, item => ({
+      updateItem(itemId, (item) => ({
         ...item,
-        bullet_points: item.bullet_points.filter(b => b._id !== bId),
+        bullet_points: item.bullet_points.filter((b) => b._id !== bId),
       })),
     updateBullet: (itemId, bId, text) =>
-      updateItem(itemId, item => ({
+      updateItem(itemId, (item) => ({
         ...item,
-        bullet_points: item.bullet_points.map(b => b._id === bId ? { ...b, text } : b),
+        bullet_points: item.bullet_points.map((b) =>
+          b._id === bId ? { ...b, text } : b,
+        ),
       })),
   };
 }
@@ -189,7 +229,15 @@ function Fg({ label, hint, children }) {
   );
 }
 
-function EntryCard({ id, editingId, onEdit, onDone, viewContent, onDelete, children }) {
+function EntryCard({
+  id,
+  editingId,
+  onEdit,
+  onDone,
+  viewContent,
+  onDelete,
+  children,
+}) {
   const isEditing = editingId === id;
   return (
     <div className="entry-card">
@@ -197,20 +245,52 @@ function EntryCard({ id, editingId, onEdit, onDone, viewContent, onDelete, child
         <div>
           {children}
           <div className="entry-edit-footer">
-            <button className="btn btn-sm" onClick={onDelete}>Remove</button>
-            <button className="btn btn-sm btn-primary" onClick={onDone}>Done</button>
+            <button className="btn btn-sm" onClick={onDelete}>
+              Remove
+            </button>
+            <button className="btn btn-sm btn-primary" onClick={onDone}>
+              Done
+            </button>
           </div>
         </div>
       ) : (
         <div className="entry-view">
           <div className="entry-view-info">{viewContent}</div>
           <div className="entry-view-actions">
-            <button className="btn btn-sm" onClick={() => onEdit(id)}>Edit</button>
-            <button className="btn btn-sm btn-icon" onClick={onDelete} title="Remove">×</button>
+            <button className="btn btn-sm" onClick={() => onEdit(id)}>
+              Edit
+            </button>
+            <button
+              className="btn btn-sm btn-icon"
+              onClick={onDelete}
+              title="Remove"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function AutoTextarea({ value, onChange, placeholder }) {
+  const ref = React.useCallback(
+    (el) => {
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    },
+    [value],
+  );
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+    />
   );
 }
 
@@ -220,16 +300,25 @@ function BulletList({ bullets, onAdd, onRemove, onUpdate }) {
       <div className="bullet-list">
         {bullets.map((b, i) => (
           <div key={b._id} className="bullet-row">
-            <textarea
-              rows={2}
+            <AutoTextarea
               value={b.text}
-              onChange={e => onUpdate(b._id, e.target.value)}
+              onChange={(e) => onUpdate(b._id, e.target.value)}
               placeholder={`Achievement or responsibility ${i + 1}...`}
             />
-            <button className="btn btn-sm btn-icon" onClick={() => onRemove(b._id)} title="Remove">×</button>
+            <button
+              className="btn btn-sm btn-icon"
+              onClick={() => onRemove(b._id)}
+              title="Remove"
+            >
+              ×
+            </button>
           </div>
         ))}
-        <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={onAdd}>
+        <button
+          className="btn btn-sm"
+          style={{ alignSelf: "flex-start" }}
+          onClick={onAdd}
+        >
           + Add Bullet
         </button>
       </div>
@@ -242,20 +331,26 @@ function ChipInput({ skills, onChange }) {
   const addSkill = () => {
     const val = input.trim().replace(/,$/, "");
     if (!val) return;
-    if (!skills.find(s => s.text.toLowerCase() === val.toLowerCase())) {
+    if (!skills.find((s) => s.text.toLowerCase() === val.toLowerCase())) {
       onChange([...skills, { _id: crypto.randomUUID(), text: val }]);
     }
     setInput("");
   };
   return (
-    <div className="chip-container" onClick={e => e.currentTarget.querySelector(".chip-input")?.focus()}>
-      {skills.map(sk => (
+    <div
+      className="chip-container"
+      onClick={(e) => e.currentTarget.querySelector(".chip-input")?.focus()}
+    >
+      {skills.map((sk) => (
         <span key={sk._id} className="skill-chip">
           {sk.text}
           <button
             type="button"
             className="chip-remove"
-            onClick={e => { e.stopPropagation(); onChange(skills.filter(s => s._id !== sk._id)); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(skills.filter((s) => s._id !== sk._id));
+            }}
           >
             ×
           </button>
@@ -265,21 +360,43 @@ function ChipInput({ skills, onChange }) {
         className="chip-input"
         type="text"
         value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkill(); } }}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            addSkill();
+          }
+        }}
         onBlur={addSkill}
-        placeholder={skills.length === 0 ? "Type a skill, press Enter to add..." : ""}
+        placeholder={
+          skills.length === 0 ? "Type a skill, press Enter to add..." : ""
+        }
       />
     </div>
   );
 }
 
-function EndDateField({ value, isCurrent, onDateChange, onCurrentChange, label = "End Date" }) {
+function EndDateField({
+  value,
+  isCurrent,
+  onDateChange,
+  onCurrentChange,
+  label = "End Date",
+}) {
   return (
     <Fg label={label}>
-      <input type="month" value={value || ""} onChange={e => onDateChange(e.target.value)} disabled={isCurrent} />
+      <input
+        type="month"
+        value={value || ""}
+        onChange={(e) => onDateChange(e.target.value)}
+        disabled={isCurrent}
+      />
       <label className="checkbox-label current-checkbox">
-        <input type="checkbox" checked={isCurrent || false} onChange={e => onCurrentChange(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={isCurrent || false}
+          onChange={(e) => onCurrentChange(e.target.checked)}
+        />
         Present
       </label>
     </Fg>
@@ -291,7 +408,9 @@ function SkillViewRow({ name, skills }) {
     <div className="entry-view-skill-row">
       <span className="entry-view-title">{name || "Unnamed category"}</span>
       {skills.length > 0 && (
-        <span className="entry-view-skill-list">: {skills.map(s => s.text).join(", ")}</span>
+        <span className="entry-view-skill-list">
+          : {skills.map((s) => s.text).join(", ")}
+        </span>
       )}
     </div>
   );
@@ -304,40 +423,96 @@ function SkillViewRow({ name, skills }) {
 //   onSave   — persists the slice to the API (merges back into full candidate upstream)
 
 function PersonalSection({ data, onChange, editing, onEdit, onDone }) {
-  const set = field => e => onChange({ ...data, [field]: e.target.value });
+  const set = (field) => (e) => onChange({ ...data, [field]: e.target.value });
   return (
     <div>
-      <p className="section-desc">Contact information rendered in your resume header.</p>
+      <p className="section-desc">
+        Contact information rendered in your resume header.
+      </p>
       <div className="card">
         <div className="card-header">
           <span>Personal Info</span>
-          {editing
-            ? <button className="btn btn-sm btn-primary" onClick={onDone}>Done</button>
-            : <button className="btn btn-sm" onClick={onEdit}>Edit</button>}
+          {editing ? (
+            <button className="btn btn-sm btn-primary" onClick={onDone}>
+              Done
+            </button>
+          ) : (
+            <button className="btn btn-sm" onClick={onEdit}>
+              Edit
+            </button>
+          )}
         </div>
         <div className={`card-body${editing ? "" : " section-locked"}`}>
           <div className="form-row">
-            <Fg label="Full Name *" hint="Required — unlocks all other sections">
-              <input type="text" value={editing ? data.name : data.name || "—"} onChange={set("name")} placeholder={editing ? "Full Name" : ""} disabled={!editing} />
+            <Fg
+              label="Full Name *"
+              hint="Required — unlocks all other sections"
+            >
+              <input
+                type="text"
+                value={editing ? data.name : data.name || "—"}
+                onChange={set("name")}
+                placeholder={editing ? "Full Name" : ""}
+                disabled={!editing}
+              />
             </Fg>
             <Fg label="Location">
-              <input type="text" value={editing ? data.location || "" : data.location || "—"} onChange={set("location")} placeholder={editing ? "City, ST" : ""} disabled={!editing} />
+              <input
+                type="text"
+                value={editing ? data.location || "" : data.location || "—"}
+                onChange={set("location")}
+                placeholder={editing ? "City, ST" : ""}
+                disabled={!editing}
+              />
             </Fg>
           </div>
           <div className="form-row">
             <Fg label="Email">
-              <input type="text" value={editing ? data.email || "" : data.email || "—"} onChange={set("email")} placeholder={editing ? "your@email.com" : ""} disabled={!editing} />
+              <input
+                type="text"
+                value={editing ? data.email || "" : data.email || "—"}
+                onChange={set("email")}
+                placeholder={editing ? "your@email.com" : ""}
+                disabled={!editing}
+              />
             </Fg>
             <Fg label="Phone">
-              <input type="text" value={editing ? data.phone || "" : data.phone || "—"} onChange={set("phone")} placeholder={editing ? "+1 (555) 000-0000" : ""} disabled={!editing} />
+              <input
+                type="text"
+                value={editing ? data.phone || "" : data.phone || "—"}
+                onChange={set("phone")}
+                placeholder={editing ? "+1 (555) 000-0000" : ""}
+                disabled={!editing}
+              />
             </Fg>
           </div>
           <div className="form-row">
             <Fg label="LinkedIn URL">
-              <input type="text" value={editing ? data.linkedin_url || "" : data.linkedin_url || "—"} onChange={set("linkedin_url")} placeholder={editing ? "https://linkedin.com/in/handle" : ""} disabled={!editing} />
+              <input
+                type="text"
+                value={
+                  editing ? data.linkedin_url || "" : data.linkedin_url || "—"
+                }
+                onChange={set("linkedin_url")}
+                placeholder={editing ? "https://linkedin.com/in/handle" : ""}
+                disabled={!editing}
+              />
             </Fg>
-            <Fg label="LinkedIn Label" hint="Short display text shown on resume">
-              <input type="text" value={editing ? data.linkedin_label || "" : data.linkedin_label || "—"} onChange={set("linkedin_label")} placeholder={editing ? "linkedin.com/in/handle" : ""} disabled={!editing} />
+            <Fg
+              label="LinkedIn Label"
+              hint="Short display text shown on resume"
+            >
+              <input
+                type="text"
+                value={
+                  editing
+                    ? data.linkedin_label || ""
+                    : data.linkedin_label || "—"
+                }
+                onChange={set("linkedin_label")}
+                placeholder={editing ? "linkedin.com/in/handle" : ""}
+                disabled={!editing}
+              />
             </Fg>
           </div>
         </div>
@@ -351,22 +526,33 @@ function ProfileSection({ data, onChange, editing, onEdit, onDone }) {
   return (
     <div>
       <p className="section-desc">
-        A concise professional summary at the top of your resume. The AI rewrites this for each role — write who you are and what you bring.
+        A concise professional summary at the top of your resume. The AI
+        rewrites this for each role — write who you are and what you bring.
       </p>
       <div className="card">
         <div className="card-header">
           <span>Profile Summary</span>
-          {editing
-            ? <button className="btn btn-sm btn-primary" onClick={onDone}>Done</button>
-            : <button className="btn btn-sm" onClick={onEdit}>Edit</button>}
+          {editing ? (
+            <button className="btn btn-sm btn-primary" onClick={onDone}>
+              Done
+            </button>
+          ) : (
+            <button className="btn btn-sm" onClick={onEdit}>
+              Edit
+            </button>
+          )}
         </div>
         <div className={`card-body${editing ? "" : " section-locked"}`}>
           <Fg label="Profile Paragraph">
             <textarea
               rows={6}
               value={editing ? data : data || "—"}
-              onChange={e => onChange(e.target.value)}
-              placeholder={editing ? "Software engineer with X years of experience in..." : ""}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={
+                editing
+                  ? "Software engineer with X years of experience in..."
+                  : ""
+              }
               disabled={!editing}
             />
           </Fg>
@@ -378,29 +564,46 @@ function ProfileSection({ data, onChange, editing, onEdit, onDone }) {
 
 // data = education[]
 function EducationSection({ data, onChange, onSave }) {
-  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } = useEditingId(data, onSave);
+  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } =
+    useEditingId(data, onSave);
 
   const add = () => {
     const newId = crypto.randomUUID();
-    onChange([...data, { _id: newId, institution: "", start_date: "", end_date: "", is_current: false, degree_line: "", gpa: null, location: "" }]);
+    onChange([
+      ...data,
+      {
+        _id: newId,
+        institution: "",
+        start_date: "",
+        end_date: "",
+        is_current: false,
+        degree_line: "",
+        gpa: null,
+        location: "",
+      },
+    ]);
     setEditingId(newId);
   };
 
   const remove = (id) => {
-    const next = data.filter(e => e._id !== id);
+    const next = data.filter((e) => e._id !== id);
     onChange(next);
     clearEdit(id);
     onSave(next);
   };
 
   const update = (id, field, val) =>
-    onChange(data.map(e => e._id === id ? { ...e, [field]: val } : e));
+    onChange(data.map((e) => (e._id === id ? { ...e, [field]: val } : e)));
 
   return (
     <div>
-      <p className="section-desc">Universities, colleges, and other educational institutions.</p>
-      {data.length === 0 && <div className="empty-entries">No education entries yet.</div>}
-      {data.map(edu => (
+      <p className="section-desc">
+        Universities, colleges, and other educational institutions.
+      </p>
+      {data.length === 0 && (
+        <div className="empty-entries">No education entries yet.</div>
+      )}
+      {data.map((edu) => (
         <EntryCard
           key={edu._id}
           id={edu._id}
@@ -410,8 +613,13 @@ function EducationSection({ data, onChange, onSave }) {
           onDelete={() => remove(edu._id)}
           viewContent={
             <div>
-              <div className="entry-view-title">{edu.institution || "Unnamed institution"}</div>
-              <div className="entry-view-sub">{edu.degree_line}{edu.gpa ? ` | GPA: ${edu.gpa}` : ""}</div>
+              <div className="entry-view-title">
+                {edu.institution || "Unnamed institution"}
+              </div>
+              <div className="entry-view-sub">
+                {edu.degree_line}
+                {edu.gpa ? ` | GPA: ${edu.gpa}` : ""}
+              </div>
               <div className="entry-view-sub">
                 {displayRange(edu.start_date, edu.end_date, edu.is_current)}
                 {edu.location ? ` · ${edu.location}` : ""}
@@ -421,64 +629,110 @@ function EducationSection({ data, onChange, onSave }) {
         >
           <div className="form-row">
             <Fg label="Institution">
-              <input type="text" value={edu.institution} onChange={e => update(edu._id, "institution", e.target.value)} placeholder="University Name" />
+              <input
+                type="text"
+                value={edu.institution}
+                onChange={(e) => update(edu._id, "institution", e.target.value)}
+                placeholder="University Name"
+              />
             </Fg>
             <Fg label="Location">
-              <input type="text" value={edu.location} onChange={e => update(edu._id, "location", e.target.value)} placeholder="City, ST" />
+              <input
+                type="text"
+                value={edu.location}
+                onChange={(e) => update(edu._id, "location", e.target.value)}
+                placeholder="City, ST"
+              />
             </Fg>
           </div>
           <div className="form-row">
             <Fg label="Start Date">
-              <input type="month" value={edu.start_date} onChange={e => update(edu._id, "start_date", e.target.value)} />
+              <input
+                type="month"
+                value={edu.start_date}
+                onChange={(e) => update(edu._id, "start_date", e.target.value)}
+              />
             </Fg>
             <EndDateField
               value={edu.end_date}
               isCurrent={edu.is_current}
-              onDateChange={v => update(edu._id, "end_date", v)}
-              onCurrentChange={v => update(edu._id, "is_current", v)}
+              onDateChange={(v) => update(edu._id, "end_date", v)}
+              onCurrentChange={(v) => update(edu._id, "is_current", v)}
             />
           </div>
           <div className="form-row">
             <Fg label="Degree">
-              <input type="text" value={edu.degree_line} onChange={e => update(edu._id, "degree_line", e.target.value)} placeholder="B.S. Computer Science" />
+              <input
+                type="text"
+                value={edu.degree_line}
+                onChange={(e) => update(edu._id, "degree_line", e.target.value)}
+                placeholder="B.S. Computer Science"
+              />
             </Fg>
             <Fg label="GPA" hint="Optional">
-              <input type="text" value={edu.gpa || ""} onChange={e => update(edu._id, "gpa", e.target.value || null)} placeholder="3.90" />
+              <input
+                type="text"
+                value={edu.gpa || ""}
+                onChange={(e) => update(edu._id, "gpa", e.target.value || null)}
+                placeholder="3.90"
+              />
             </Fg>
           </div>
         </EntryCard>
       ))}
-      <button className="btn btn-sm" onClick={add}>+ Add Education</button>
+      <button className="btn btn-sm" onClick={add}>
+        + Add Education
+      </button>
     </div>
   );
 }
 
 // data = experience[]
 function ExpSection({ data, onChange, onSave }) {
-  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } = useEditingId(data, onSave);
-  const { addBullet, removeBullet, updateBullet } = makeBulletHandlers(data, onChange);
+  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } =
+    useEditingId(data, onSave);
+  const { addBullet, removeBullet, updateBullet } = makeBulletHandlers(
+    data,
+    onChange,
+  );
 
   const add = () => {
     const newId = crypto.randomUUID();
-    onChange([...data, { _id: newId, company_name: "", job_title: "", start_date: "", end_date: "", is_current: false, location: "", bullet_points: [] }]);
+    onChange([
+      ...data,
+      {
+        _id: newId,
+        company_name: "",
+        job_title: "",
+        start_date: "",
+        end_date: "",
+        is_current: false,
+        location: "",
+        bullet_points: [],
+      },
+    ]);
     setEditingId(newId);
   };
 
   const remove = (id) => {
-    const next = data.filter(e => e._id !== id);
+    const next = data.filter((e) => e._id !== id);
     onChange(next);
     clearEdit(id);
     onSave(next);
   };
 
   const update = (id, field, val) =>
-    onChange(data.map(e => e._id === id ? { ...e, [field]: val } : e));
+    onChange(data.map((e) => (e._id === id ? { ...e, [field]: val } : e)));
 
   return (
     <div>
-      <p className="section-desc">Work experience, internships, and other professional roles.</p>
-      {data.length === 0 && <div className="empty-entries">No experience entries yet.</div>}
-      {data.map(exp => (
+      <p className="section-desc">
+        Work experience, internships, and other professional roles.
+      </p>
+      {data.length === 0 && (
+        <div className="empty-entries">No experience entries yet.</div>
+      )}
+      {data.map((exp) => (
         <EntryCard
           key={exp._id}
           id={exp._id}
@@ -489,7 +743,8 @@ function ExpSection({ data, onChange, onSave }) {
           viewContent={
             <div>
               <div className="entry-view-title">
-                {exp.company_name || "Unnamed company"}{exp.job_title ? ` — ${exp.job_title}` : ""}
+                {exp.company_name || "Unnamed company"}
+                {exp.job_title ? ` — ${exp.job_title}` : ""}
               </div>
               <div className="entry-view-sub">
                 {displayRange(exp.start_date, exp.end_date, exp.is_current)}
@@ -497,7 +752,8 @@ function ExpSection({ data, onChange, onSave }) {
               </div>
               {exp.bullet_points.length > 0 && (
                 <div className="entry-view-sub">
-                  {exp.bullet_points.length} bullet{exp.bullet_points.length !== 1 ? "s" : ""}
+                  {exp.bullet_points.length} bullet
+                  {exp.bullet_points.length !== 1 ? "s" : ""}
                 </div>
               )}
             </div>
@@ -505,86 +761,135 @@ function ExpSection({ data, onChange, onSave }) {
         >
           <div className="form-row">
             <Fg label="Company">
-              <input type="text" value={exp.company_name} onChange={e => update(exp._id, "company_name", e.target.value)} placeholder="Company Name" />
+              <input
+                type="text"
+                value={exp.company_name}
+                onChange={(e) =>
+                  update(exp._id, "company_name", e.target.value)
+                }
+                placeholder="Company Name"
+              />
             </Fg>
             <Fg label="Job Title">
-              <input type="text" value={exp.job_title} onChange={e => update(exp._id, "job_title", e.target.value)} placeholder="Software Engineer" />
+              <input
+                type="text"
+                value={exp.job_title}
+                onChange={(e) => update(exp._id, "job_title", e.target.value)}
+                placeholder="Software Engineer"
+              />
             </Fg>
           </div>
           <div className="form-row">
             <Fg label="Start Date">
-              <input type="month" value={exp.start_date} onChange={e => update(exp._id, "start_date", e.target.value)} />
+              <input
+                type="month"
+                value={exp.start_date}
+                onChange={(e) => update(exp._id, "start_date", e.target.value)}
+              />
             </Fg>
             <EndDateField
               value={exp.end_date}
               isCurrent={exp.is_current}
-              onDateChange={v => update(exp._id, "end_date", v)}
-              onCurrentChange={v => update(exp._id, "is_current", v)}
+              onDateChange={(v) => update(exp._id, "end_date", v)}
+              onCurrentChange={(v) => update(exp._id, "is_current", v)}
             />
           </div>
           <Fg label="Location">
-            <input type="text" value={exp.location} onChange={e => update(exp._id, "location", e.target.value)} placeholder="City, ST or Remote" />
+            <input
+              type="text"
+              value={exp.location}
+              onChange={(e) => update(exp._id, "location", e.target.value)}
+              placeholder="City, ST or Remote"
+            />
           </Fg>
           <BulletList
             bullets={exp.bullet_points}
             onAdd={() => addBullet(exp._id)}
-            onRemove={bId => removeBullet(exp._id, bId)}
+            onRemove={(bId) => removeBullet(exp._id, bId)}
             onUpdate={(bId, text) => updateBullet(exp._id, bId, text)}
           />
         </EntryCard>
       ))}
-      <button className="btn btn-sm" onClick={add}>+ Add Experience</button>
+      <button className="btn btn-sm" onClick={add}>
+        + Add Experience
+      </button>
     </div>
   );
 }
 
 // data = projects[]
 function ProjectsSection({ data, onChange, onSave }) {
-  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } = useEditingId(data, onSave);
-  const { addBullet, removeBullet, updateBullet } = makeBulletHandlers(data, onChange);
+  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } =
+    useEditingId(data, onSave);
+  const { addBullet, removeBullet, updateBullet } = makeBulletHandlers(
+    data,
+    onChange,
+  );
 
   const add = () => {
     const newId = crypto.randomUUID();
-    onChange([...data, { _id: newId, name: "", date: "", github_links: [], bullet_points: [] }]);
+    onChange([
+      ...data,
+      { _id: newId, name: "", date: "", github_links: [], bullet_points: [] },
+    ]);
     setEditingId(newId);
   };
 
   const remove = (id) => {
-    const next = data.filter(p => p._id !== id);
+    const next = data.filter((p) => p._id !== id);
     onChange(next);
     clearEdit(id);
     onSave(next);
   };
 
   const update = (id, field, val) =>
-    onChange(data.map(p => p._id === id ? { ...p, [field]: val } : p));
+    onChange(data.map((p) => (p._id === id ? { ...p, [field]: val } : p)));
 
   const updateLink = (projId, lid, field, val) =>
-    onChange(data.map(p =>
-      p._id === projId
-        ? { ...p, github_links: p.github_links.map(l => l._id === lid ? { ...l, [field]: val } : l) }
-        : p
-    ));
+    onChange(
+      data.map((p) =>
+        p._id === projId
+          ? {
+              ...p,
+              github_links: p.github_links.map((l) =>
+                l._id === lid ? { ...l, [field]: val } : l,
+              ),
+            }
+          : p,
+      ),
+    );
 
   const addLink = (projId) =>
-    onChange(data.map(p =>
-      p._id === projId
-        ? { ...p, github_links: [...p.github_links, { _id: crypto.randomUUID(), name: "", url: "" }] }
-        : p
-    ));
+    onChange(
+      data.map((p) =>
+        p._id === projId
+          ? {
+              ...p,
+              github_links: [
+                ...p.github_links,
+                { _id: crypto.randomUUID(), name: "", url: "" },
+              ],
+            }
+          : p,
+      ),
+    );
 
   const removeLink = (projId, lid) =>
-    onChange(data.map(p =>
-      p._id === projId
-        ? { ...p, github_links: p.github_links.filter(l => l._id !== lid) }
-        : p
-    ));
+    onChange(
+      data.map((p) =>
+        p._id === projId
+          ? { ...p, github_links: p.github_links.filter((l) => l._id !== lid) }
+          : p,
+      ),
+    );
 
   return (
     <div>
       <p className="section-desc">Personal and academic projects.</p>
-      {data.length === 0 && <div className="empty-entries">No projects yet.</div>}
-      {data.map(proj => (
+      {data.length === 0 && (
+        <div className="empty-entries">No projects yet.</div>
+      )}
+      {data.map((proj) => (
         <EntryCard
           key={proj._id}
           id={proj._id}
@@ -594,7 +899,9 @@ function ProjectsSection({ data, onChange, onSave }) {
           onDelete={() => remove(proj._id)}
           viewContent={
             <div>
-              <div className="entry-view-title">{proj.name || "Unnamed project"}</div>
+              <div className="entry-view-title">
+                {proj.name || "Unnamed project"}
+              </div>
               <div className="entry-view-sub">
                 {proj.date ? fromMonthInput(proj.date) : ""}
                 {proj.bullet_points.length > 0
@@ -606,40 +913,76 @@ function ProjectsSection({ data, onChange, onSave }) {
         >
           <div className="form-row">
             <Fg label="Project Name">
-              <input type="text" value={proj.name} onChange={e => update(proj._id, "name", e.target.value)} placeholder="Project Name" />
+              <input
+                type="text"
+                value={proj.name}
+                onChange={(e) => update(proj._id, "name", e.target.value)}
+                placeholder="Project Name"
+              />
             </Fg>
             <Fg label="Date">
-              <input type="month" value={proj.date} onChange={e => update(proj._id, "date", e.target.value)} />
+              <input
+                type="month"
+                value={proj.date}
+                onChange={(e) => update(proj._id, "date", e.target.value)}
+              />
             </Fg>
           </div>
-          <Fg label="GitHub Links" hint="Optional — label and URL for each repository">
+          <Fg
+            label="GitHub Links"
+            hint="Optional — label and URL for each repository"
+          >
             <div className="repo-rows">
-              {proj.github_links.map(link => (
+              {proj.github_links.map((link) => (
                 <div key={link._id} className="repo-row">
-                  <input type="text" value={link.name} onChange={e => updateLink(proj._id, link._id, "name", e.target.value)} placeholder="Label (e.g. GitHub)" />
-                  <input type="text" value={link.url} onChange={e => updateLink(proj._id, link._id, "url", e.target.value)} placeholder="https://github.com/..." />
-                  <button className="btn btn-sm btn-icon" onClick={() => removeLink(proj._id, link._id)}>×</button>
+                  <input
+                    type="text"
+                    value={link.name}
+                    onChange={(e) =>
+                      updateLink(proj._id, link._id, "name", e.target.value)
+                    }
+                    placeholder="Label (e.g. GitHub)"
+                  />
+                  <input
+                    type="text"
+                    value={link.url}
+                    onChange={(e) =>
+                      updateLink(proj._id, link._id, "url", e.target.value)
+                    }
+                    placeholder="https://github.com/..."
+                  />
+                  <button
+                    className="btn btn-sm btn-icon"
+                    onClick={() => removeLink(proj._id, link._id)}
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
-              <button className="btn btn-sm" onClick={() => addLink(proj._id)}>+ Add Link</button>
+              <button className="btn btn-sm" onClick={() => addLink(proj._id)}>
+                + Add Link
+              </button>
             </div>
           </Fg>
           <BulletList
             bullets={proj.bullet_points}
             onAdd={() => addBullet(proj._id)}
-            onRemove={bId => removeBullet(proj._id, bId)}
+            onRemove={(bId) => removeBullet(proj._id, bId)}
             onUpdate={(bId, text) => updateBullet(proj._id, bId, text)}
           />
         </EntryCard>
       ))}
-      <button className="btn btn-sm" onClick={add}>+ Add Project</button>
+      <button className="btn btn-sm" onClick={add}>
+        + Add Project
+      </button>
     </div>
   );
 }
 
 // data = skills[] (each item: { _id, name, skills: [{_id, text}] })
 function SkillsSection({ data, onChange, onSave }) {
-  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } = useEditingId(data, onSave);
+  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } =
+    useEditingId(data, onSave);
 
   const add = () => {
     const newId = crypto.randomUUID();
@@ -648,25 +991,28 @@ function SkillsSection({ data, onChange, onSave }) {
   };
 
   const remove = (id) => {
-    const next = data.filter(s => s._id !== id);
+    const next = data.filter((s) => s._id !== id);
     onChange(next);
     clearEdit(id);
     onSave(next);
   };
 
   const updateName = (id, name) =>
-    onChange(data.map(s => s._id === id ? { ...s, name } : s));
+    onChange(data.map((s) => (s._id === id ? { ...s, name } : s)));
 
   const updateSkills = (catId, skills) =>
-    onChange(data.map(s => s._id === catId ? { ...s, skills } : s));
+    onChange(data.map((s) => (s._id === catId ? { ...s, skills } : s)));
 
   return (
     <div>
       <p className="section-desc">
-        Organize skills into categories — each becomes a row on your resume. Type a skill and press Enter or comma to add it.
+        Organize skills into categories — each becomes a row on your resume.
+        Type a skill and press Enter or comma to add it.
       </p>
-      {data.length === 0 && <div className="empty-entries">No skill categories yet.</div>}
-      {data.map(cat => (
+      {data.length === 0 && (
+        <div className="empty-entries">No skill categories yet.</div>
+      )}
+      {data.map((cat) => (
         <EntryCard
           key={cat._id}
           id={cat._id}
@@ -677,21 +1023,35 @@ function SkillsSection({ data, onChange, onSave }) {
           viewContent={<SkillViewRow name={cat.name} skills={cat.skills} />}
         >
           <Fg label="Category Name">
-            <input type="text" value={cat.name} onChange={e => updateName(cat._id, e.target.value)} placeholder="Languages" />
+            <input
+              type="text"
+              value={cat.name}
+              onChange={(e) => updateName(cat._id, e.target.value)}
+              placeholder="Languages"
+            />
           </Fg>
-          <Fg label="Skills" hint="Type a skill and press Enter or comma to add">
-            <ChipInput skills={cat.skills} onChange={skills => updateSkills(cat._id, skills)} />
+          <Fg
+            label="Skills"
+            hint="Type a skill and press Enter or comma to add"
+          >
+            <ChipInput
+              skills={cat.skills}
+              onChange={(skills) => updateSkills(cat._id, skills)}
+            />
           </Fg>
         </EntryCard>
       ))}
-      <button className="btn btn-sm" onClick={add}>+ Add Category</button>
+      <button className="btn btn-sm" onClick={add}>
+        + Add Category
+      </button>
     </div>
   );
 }
 
 // data = certificates[]
 function CertSection({ data, onChange, onSave }) {
-  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } = useEditingId(data, onSave);
+  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } =
+    useEditingId(data, onSave);
 
   const add = () => {
     const newId = crypto.randomUUID();
@@ -700,20 +1060,22 @@ function CertSection({ data, onChange, onSave }) {
   };
 
   const remove = (id) => {
-    const next = data.filter(c => c._id !== id);
+    const next = data.filter((c) => c._id !== id);
     onChange(next);
     clearEdit(id);
     onSave(next);
   };
 
   const update = (id, field, val) =>
-    onChange(data.map(c => c._id === id ? { ...c, [field]: val } : c));
+    onChange(data.map((c) => (c._id === id ? { ...c, [field]: val } : c)));
 
   return (
     <div>
       <p className="section-desc">Professional certifications and licenses.</p>
-      {data.length === 0 && <div className="empty-entries">No certificates yet.</div>}
-      {data.map(cert => (
+      {data.length === 0 && (
+        <div className="empty-entries">No certificates yet.</div>
+      )}
+      {data.map((cert) => (
         <EntryCard
           key={cert._id}
           id={cert._id}
@@ -723,34 +1085,55 @@ function CertSection({ data, onChange, onSave }) {
           onDelete={() => remove(cert._id)}
           viewContent={
             <div>
-              <div className="entry-view-title">{cert.name || "Unnamed certificate"}</div>
+              <div className="entry-view-title">
+                {cert.name || "Unnamed certificate"}
+              </div>
               <div className="entry-view-sub">
-                {[cert.issuer, cert.date ? fromMonthInput(cert.date) : ""].filter(Boolean).join(" · ")}
+                {[cert.issuer, cert.date ? fromMonthInput(cert.date) : ""]
+                  .filter(Boolean)
+                  .join(" · ")}
               </div>
             </div>
           }
         >
           <div className="form-row">
             <Fg label="Certificate Name">
-              <input type="text" value={cert.name} onChange={e => update(cert._id, "name", e.target.value)} placeholder="Certification Name" />
+              <input
+                type="text"
+                value={cert.name}
+                onChange={(e) => update(cert._id, "name", e.target.value)}
+                placeholder="Certification Name"
+              />
             </Fg>
             <Fg label="Issuer">
-              <input type="text" value={cert.issuer || ""} onChange={e => update(cert._id, "issuer", e.target.value)} placeholder="Issuing Organization" />
+              <input
+                type="text"
+                value={cert.issuer || ""}
+                onChange={(e) => update(cert._id, "issuer", e.target.value)}
+                placeholder="Issuing Organization"
+              />
             </Fg>
           </div>
           <Fg label="Date Earned">
-            <input type="month" value={cert.date || ""} onChange={e => update(cert._id, "date", e.target.value)} />
+            <input
+              type="month"
+              value={cert.date || ""}
+              onChange={(e) => update(cert._id, "date", e.target.value)}
+            />
           </Fg>
         </EntryCard>
       ))}
-      <button className="btn btn-sm" onClick={add}>+ Add Certificate</button>
+      <button className="btn btn-sm" onClick={add}>
+        + Add Certificate
+      </button>
     </div>
   );
 }
 
 // data = topics[] (the PersonalSummary.topics array, not the wrapper object)
 function SummarySection({ data, onChange, onSave }) {
-  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } = useEditingId(data, onSave);
+  const { editingId, setEditingId, startEdit, finishEdit, clearEdit } =
+    useEditingId(data, onSave);
 
   const add = () => {
     const newId = crypto.randomUUID();
@@ -759,24 +1142,25 @@ function SummarySection({ data, onChange, onSave }) {
   };
 
   const remove = (id) => {
-    const next = data.filter(t => t._id !== id);
+    const next = data.filter((t) => t._id !== id);
     onChange(next);
     clearEdit(id);
     onSave(next);
   };
 
   const update = (id, field, val) =>
-    onChange(data.map(t => t._id === id ? { ...t, [field]: val } : t));
+    onChange(data.map((t) => (t._id === id ? { ...t, [field]: val } : t)));
 
   return (
     <div>
       <p className="section-desc">
-        Narrative context used when answering open-ended application questions. Write in first person,
-        honest and specific — the AI answers in your voice. Suggested topics: origin, career direction,
-        why this field, strengths, problem solving, weaknesses.
+        Narrative context used when answering open-ended application questions.
+        Write in first person, honest and specific — the AI answers in your
+        voice. Suggested topics: origin, career direction, why this field,
+        strengths, problem solving, weaknesses.
       </p>
       {data.length === 0 && <div className="empty-entries">No topics yet.</div>}
-      {data.map(t => (
+      {data.map((t) => (
         <EntryCard
           key={t._id}
           id={t._id}
@@ -786,24 +1170,39 @@ function SummarySection({ data, onChange, onSave }) {
           onDelete={() => remove(t._id)}
           viewContent={
             <div>
-              <div className="entry-view-title">{t.topic || "Unnamed topic"}</div>
+              <div className="entry-view-title">
+                {t.topic || "Unnamed topic"}
+              </div>
               {t.response && (
                 <div className="entry-view-sub">
-                  {t.response.slice(0, 120)}{t.response.length > 120 ? "…" : ""}
+                  {t.response.slice(0, 120)}
+                  {t.response.length > 120 ? "…" : ""}
                 </div>
               )}
             </div>
           }
         >
           <Fg label="Topic">
-            <input type="text" value={t.topic} onChange={e => update(t._id, "topic", e.target.value)} placeholder="e.g. career_direction" />
+            <input
+              type="text"
+              value={t.topic}
+              onChange={(e) => update(t._id, "topic", e.target.value)}
+              placeholder="e.g. career_direction"
+            />
           </Fg>
           <Fg label="Your Response">
-            <textarea rows={5} value={t.response} onChange={e => update(t._id, "response", e.target.value)} placeholder="Write in first person, honest and specific..." />
+            <textarea
+              rows={5}
+              value={t.response}
+              onChange={(e) => update(t._id, "response", e.target.value)}
+              placeholder="Write in first person, honest and specific..."
+            />
           </Fg>
         </EntryCard>
       ))}
-      <button className="btn btn-sm" onClick={add}>+ Add Topic</button>
+      <button className="btn btn-sm" onClick={add}>
+        + Add Topic
+      </button>
     </div>
   );
 }
@@ -819,13 +1218,20 @@ const SECTION_LABELS = {
   certificates: "Certifications",
 };
 
-const DEFAULT_LAYOUT_ORDER = ["profile", "education", "experience", "projects", "skills", "certificates"];
+const DEFAULT_LAYOUT_ORDER = [
+  "profile",
+  "education",
+  "experience",
+  "projects",
+  "skills",
+  "certificates",
+];
 
 // data = section_order string[]
 function ResumeSettingsSection({ data, onChange }) {
   const [exporting, setExporting] = useState(false);
   const order = data;
-  const inactive = DEFAULT_LAYOUT_ORDER.filter(s => !order.includes(s));
+  const inactive = DEFAULT_LAYOUT_ORDER.filter((s) => !order.includes(s));
 
   const move = (idx, dir) => {
     const next = [...order];
@@ -858,39 +1264,96 @@ function ResumeSettingsSection({ data, onChange }) {
     }
   }
 
-  const rowStyle = { display: "flex", alignItems: "center", gap: "8px", padding: "8px 0", borderBottom: "1px solid var(--border)" };
+  const rowStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 0",
+    borderBottom: "1px solid var(--border)",
+  };
 
   return (
     <div className="section-wrap">
       <p className="section-desc">
-        Set the order sections appear on your resume, then download a full version of your profile as a PDF.
+        Set the order sections appear on your resume, then download a full
+        version of your profile as a PDF.
       </p>
 
       <div className="entry-card" style={{ marginBottom: "24px" }}>
-        <h3 style={{ marginBottom: "12px", fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-muted)" }}>
+        <h3
+          style={{
+            marginBottom: "12px",
+            fontSize: "13px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "var(--fg-muted)",
+          }}
+        >
           Section Order
         </h3>
         {order.map((section, idx) => (
           <div key={section} style={rowStyle}>
-            <span style={{ flex: 1, fontSize: "14px" }}>{SECTION_LABELS[section] || section}</span>
-            <button className="btn btn-sm" onClick={() => move(idx, -1)} disabled={idx === 0} style={{ padding: "2px 8px", minWidth: "28px" }} title="Move up">↑</button>
-            <button className="btn btn-sm" onClick={() => move(idx, 1)} disabled={idx === order.length - 1} style={{ padding: "2px 8px", minWidth: "28px" }} title="Move down">↓</button>
-            <button className="btn btn-sm" onClick={() => onChange(order.filter(s => s !== section))} style={{ padding: "2px 8px", minWidth: "28px", color: "var(--fg-muted)" }} title="Remove section">×</button>
+            <span style={{ flex: 1, fontSize: "14px" }}>
+              {SECTION_LABELS[section] || section}
+            </span>
+            <button
+              className="btn btn-sm"
+              onClick={() => move(idx, -1)}
+              disabled={idx === 0}
+              style={{ padding: "2px 8px", minWidth: "28px" }}
+              title="Move up"
+            >
+              ↑
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={() => move(idx, 1)}
+              disabled={idx === order.length - 1}
+              style={{ padding: "2px 8px", minWidth: "28px" }}
+              title="Move down"
+            >
+              ↓
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={() => onChange(order.filter((s) => s !== section))}
+              style={{
+                padding: "2px 8px",
+                minWidth: "28px",
+                color: "var(--fg-muted)",
+              }}
+              title="Remove section"
+            >
+              ×
+            </button>
           </div>
         ))}
         {inactive.length > 0 && (
           <div style={{ marginTop: "8px" }}>
-            {inactive.map(section => (
+            {inactive.map((section) => (
               <div key={section} style={{ ...rowStyle, opacity: 0.45 }}>
-                <span style={{ flex: 1, fontSize: "14px" }}>{SECTION_LABELS[section] || section}</span>
-                <button className="btn btn-sm" onClick={() => onChange([...order, section])} style={{ padding: "2px 8px" }} title="Add section">+ Add</button>
+                <span style={{ flex: 1, fontSize: "14px" }}>
+                  {SECTION_LABELS[section] || section}
+                </span>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => onChange([...order, section])}
+                  style={{ padding: "2px 8px" }}
+                  title="Add section"
+                >
+                  + Add
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <button className="btn btn-primary" onClick={exportResume} disabled={exporting}>
+      <button
+        className="btn btn-primary"
+        onClick={exportResume}
+        disabled={exporting}
+      >
         {exporting ? "Generating…" : "⬇ Download Full Resume"}
       </button>
     </div>
@@ -906,16 +1369,25 @@ function UploadResumeSection({ hasExistingProfile, onUploadComplete }) {
   const [result, setResult] = useState(null);
 
   async function handleUpload() {
-    if (!file) { toast("Please select a file.", "error"); return; }
+    if (!file) {
+      toast("Please select a file.", "error");
+      return;
+    }
     if (hasExistingProfile && !confirmed) {
-      toast("Please confirm you want to overwrite your existing profile.", "error");
+      toast(
+        "Please confirm you want to overwrite your existing profile.",
+        "error",
+      );
       return;
     }
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/v1/profile/upload-resume", { method: "POST", body: formData });
+      const res = await fetch("/api/v1/profile/upload-resume", {
+        method: "POST",
+        body: formData,
+      });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.detail || `Upload failed (${res.status})`);
@@ -923,7 +1395,10 @@ function UploadResumeSection({ hasExistingProfile, onUploadComplete }) {
       const data = await res.json();
       setResult(data);
       onUploadComplete(data);
-      toast("Resume imported! Review each tab and fill in any gaps.", "success");
+      toast(
+        "Resume imported! Review each tab and fill in any gaps.",
+        "success",
+      );
     } catch (e) {
       toast("Upload failed: " + e.message, "error");
     } finally {
@@ -933,28 +1408,74 @@ function UploadResumeSection({ hasExistingProfile, onUploadComplete }) {
 
   const parts = [];
   if (result) {
-    if (result.experience_count)   parts.push(`${result.experience_count} job${result.experience_count !== 1 ? "s" : ""}`);
-    if (result.education_count)    parts.push(`${result.education_count} education entr${result.education_count !== 1 ? "ies" : "y"}`);
-    if (result.projects_count)     parts.push(`${result.projects_count} project${result.projects_count !== 1 ? "s" : ""}`);
-    if (result.skills_count)       parts.push(`${result.skills_count} skill categor${result.skills_count !== 1 ? "ies" : "y"}`);
-    if (result.certificates_count) parts.push(`${result.certificates_count} certificate${result.certificates_count !== 1 ? "s" : ""}`);
+    if (result.experience_count)
+      parts.push(
+        `${result.experience_count} job${result.experience_count !== 1 ? "s" : ""}`,
+      );
+    if (result.education_count)
+      parts.push(
+        `${result.education_count} education entr${result.education_count !== 1 ? "ies" : "y"}`,
+      );
+    if (result.projects_count)
+      parts.push(
+        `${result.projects_count} project${result.projects_count !== 1 ? "s" : ""}`,
+      );
+    if (result.skills_count)
+      parts.push(
+        `${result.skills_count} skill categor${result.skills_count !== 1 ? "ies" : "y"}`,
+      );
+    if (result.certificates_count)
+      parts.push(
+        `${result.certificates_count} certificate${result.certificates_count !== 1 ? "s" : ""}`,
+      );
   }
 
   return (
     <div className="section-card">
       <h2 className="section-title">Import from Resume</h2>
       <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>
-        Upload your existing resume to automatically populate your profile. Accepted formats: PDF, DOCX, TXT.
+        Upload your existing resume to automatically populate your profile.
+        Accepted formats: PDF, DOCX, TXT.
       </p>
 
       {hasExistingProfile && (
-        <div className="form-group" style={{ background: "var(--bg-card-alt, var(--bg-card))", border: "1px solid var(--warning, #b45309)", borderRadius: "6px", padding: "0.875rem 1rem", marginBottom: "1.25rem" }}>
-          <p style={{ margin: "0 0 0.5rem", fontWeight: 500 }}>⚠️ Your profile already has data</p>
-          <p style={{ margin: "0 0 0.75rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            Uploading a resume will overwrite your current personal info and candidate profile. Q&amp;A topics will not be affected.
+        <div
+          className="form-group"
+          style={{
+            background: "var(--bg-card-alt, var(--bg-card))",
+            border: "1px solid var(--warning, #b45309)",
+            borderRadius: "6px",
+            padding: "0.875rem 1rem",
+            marginBottom: "1.25rem",
+          }}
+        >
+          <p style={{ margin: "0 0 0.5rem", fontWeight: 500 }}>
+            ⚠️ Your profile already has data
           </p>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.875rem" }}>
-            <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />
+          <p
+            style={{
+              margin: "0 0 0.75rem",
+              color: "var(--text-muted)",
+              fontSize: "0.875rem",
+            }}
+          >
+            Uploading a resume will overwrite your current personal info and
+            candidate profile. Q&amp;A topics will not be affected.
+          </p>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+            />
             I understand — overwrite my existing profile data
           </label>
         </div>
@@ -962,19 +1483,48 @@ function UploadResumeSection({ hasExistingProfile, onUploadComplete }) {
 
       <div className="form-group">
         <label className="form-label">Resume File</label>
-        <input type="file" accept=".pdf,.docx,.txt" onChange={e => { setFile(e.target.files[0] || null); setResult(null); }} style={{ display: "block", marginBottom: "1rem" }} />
+        <input
+          type="file"
+          accept=".pdf,.docx,.txt"
+          onChange={(e) => {
+            setFile(e.target.files[0] || null);
+            setResult(null);
+          }}
+          style={{ display: "block", marginBottom: "1rem" }}
+        />
       </div>
 
-      <button className="btn btn-primary" onClick={handleUpload} disabled={uploading || !file || (hasExistingProfile && !confirmed)}>
+      <button
+        className="btn btn-primary"
+        onClick={handleUpload}
+        disabled={uploading || !file || (hasExistingProfile && !confirmed)}
+      >
         {uploading ? "Importing…" : "Import Resume"}
       </button>
 
       {result && (
-        <div style={{ marginTop: "1.25rem", padding: "0.875rem 1rem", background: "var(--bg-card-alt, var(--bg-card))", border: "1px solid var(--success, #15803d)", borderRadius: "6px" }}>
-          <p style={{ margin: "0 0 0.25rem", fontWeight: 500 }}>✓ Profile populated</p>
+        <div
+          style={{
+            marginTop: "1.25rem",
+            padding: "0.875rem 1rem",
+            background: "var(--bg-card-alt, var(--bg-card))",
+            border: "1px solid var(--success, #15803d)",
+            borderRadius: "6px",
+          }}
+        >
+          <p style={{ margin: "0 0 0.25rem", fontWeight: 500 }}>
+            ✓ Profile populated
+          </p>
           {parts.length > 0 && (
-            <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.875rem" }}>
-              Imported: {parts.join(", ")}. Review each tab to verify and fill in any gaps.
+            <p
+              style={{
+                margin: 0,
+                color: "var(--text-muted)",
+                fontSize: "0.875rem",
+              }}
+            >
+              Imported: {parts.join(", ")}. Review each tab to verify and fill
+              in any gaps.
             </p>
           )}
         </div>
@@ -985,7 +1535,12 @@ function UploadResumeSection({ hasExistingProfile, onUploadComplete }) {
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
-const TIER_COLORS = ["var(--danger)", "var(--accent)", "#3b82f6", "var(--warn)"];
+const TIER_COLORS = [
+  "var(--danger)",
+  "var(--accent)",
+  "#3b82f6",
+  "var(--warn)",
+];
 
 function ProgressBar({ lines, minLines }) {
   const pct = minLines > 0 ? (lines / minLines) * 100 : 0;
@@ -996,14 +1551,57 @@ function ProgressBar({ lines, minLines }) {
   const fillColor = tier === 0 ? baseColor : nextColor;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "auto", paddingLeft: "16px", paddingRight: "8px" }}>
-      <div style={{ position: "relative", width: "140px", height: "6px", background: "var(--border)", borderRadius: "99px", flexShrink: 0 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        marginLeft: "auto",
+        paddingLeft: "16px",
+        paddingRight: "8px",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: "140px",
+          height: "6px",
+          background: "var(--border)",
+          borderRadius: "99px",
+          flexShrink: 0,
+        }}
+      >
         {tier >= 1 && (
-          <div style={{ position: "absolute", inset: 0, background: baseColor, borderRadius: "99px" }} />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: baseColor,
+              borderRadius: "99px",
+            }}
+          />
         )}
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: fillWidth, background: fillColor, borderRadius: "99px", transition: "width 0.4s ease, background 0.4s ease" }} />
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: fillWidth,
+            background: fillColor,
+            borderRadius: "99px",
+            transition: "width 0.4s ease, background 0.4s ease",
+          }}
+        />
       </div>
-      <span style={{ fontFamily: "var(--mono)", fontSize: "11px", color: "var(--text-2)", flexShrink: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--mono)",
+          fontSize: "11px",
+          color: "var(--text-2)",
+          flexShrink: 0,
+        }}
+      >
         {Math.round(pct)}%
       </span>
     </div>
@@ -1012,7 +1610,18 @@ function ProgressBar({ lines, minLines }) {
 
 // ── Tab config ────────────────────────────────────────────────────────────────
 
-const TAB_ORDER = ["upload","personal","profile","education","experience","projects","skills","certificates","summary","resume_settings"];
+const TAB_ORDER = [
+  "upload",
+  "personal",
+  "profile",
+  "education",
+  "experience",
+  "projects",
+  "skills",
+  "certificates",
+  "summary",
+  "resume_settings",
+];
 const TAB_LABELS = {
   upload: "Upload Resume",
   personal: "Personal",
@@ -1046,8 +1655,22 @@ function validateTab(tabName, allData) {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const BLANK_PERSONAL = { name: "", location: "", phone: "", email: "", linkedin_url: "", linkedin_label: "" };
-const BLANK_CANDIDATE = { profile: "", education: [], certificates: [], skills: [], experience: [], projects: [] };
+const BLANK_PERSONAL = {
+  name: "",
+  location: "",
+  phone: "",
+  email: "",
+  linkedin_url: "",
+  linkedin_label: "",
+};
+const BLANK_CANDIDATE = {
+  profile: "",
+  education: [],
+  certificates: [],
+  skills: [],
+  experience: [],
+  projects: [],
+};
 const BLANK_SUMMARY = { topics: [] };
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -1070,7 +1693,9 @@ function App() {
     snap.current = { personal, candidate, summary, layout, tab, loading };
   }, [personal, candidate, summary, layout, tab, loading]);
 
-  useEffect(() => { init(); }, []);
+  useEffect(() => {
+    init();
+  }, []);
 
   // ── Save helpers ────────────────────────────────────────────────────────────
 
@@ -1078,7 +1703,9 @@ function App() {
     try {
       const data = await apiFetch("GET", "/api/v1/profile/line-count");
       if (data) setLineCount(data);
-    } catch (e) { /* non-fatal */ }
+    } catch (e) {
+      /* non-fatal */
+    }
   }
 
   async function saveCandidateData(data, silent = false) {
@@ -1106,10 +1733,21 @@ function App() {
 
   // Silently commit the current tab before navigation.
   async function commitCurrent() {
-    const { tab: t, personal: p, candidate: c, summary: s, layout: l, loading: isLoading } = snap.current;
+    const {
+      tab: t,
+      personal: p,
+      candidate: c,
+      summary: s,
+      layout: l,
+      loading: isLoading,
+    } = snap.current;
     if (isLoading) return;
     if (t === "upload") return;
-    if (validateTab(t, { personal: p, candidate: c, summary: s, layout: l }).length > 0) return;
+    if (
+      validateTab(t, { personal: p, candidate: c, summary: s, layout: l })
+        .length > 0
+    )
+      return;
     try {
       if (t === "personal") await savePersonalData(p, true);
       else if (t === "summary") await saveSummaryData(s, true);
@@ -1131,14 +1769,20 @@ function App() {
       if (data?.candidate) setCandidate(fromCandidate(data.candidate));
       if (data?.personal_summary) {
         const raw = data.personal_summary;
-        setSummary({ topics: (raw.topics || []).map(t => ({ ...t, _id: crypto.randomUUID() })) });
+        setSummary({
+          topics: (raw.topics || []).map((t) => ({
+            ...t,
+            _id: crypto.randomUUID(),
+          })),
+        });
       }
       if (!data?.personal?.name?.trim()) {
         setTab("upload");
         setPersonalEditing(true);
       }
     } catch (e) {
-      if (!e.message.includes("404")) toast("Could not load profile: " + e.message, "error");
+      if (!e.message.includes("404"))
+        toast("Could not load profile: " + e.message, "error");
       setTab("upload");
       setPersonalEditing(true);
     }
@@ -1162,9 +1806,23 @@ function App() {
   }
 
   async function goNext() {
-    const { tab: t, personal: p, candidate: c, summary: s, layout: l } = snap.current;
-    const errors = validateTab(t, { personal: p, candidate: c, summary: s, layout: l });
-    if (errors.length > 0) { errors.forEach(msg => toast(msg, "error")); return; }
+    const {
+      tab: t,
+      personal: p,
+      candidate: c,
+      summary: s,
+      layout: l,
+    } = snap.current;
+    const errors = validateTab(t, {
+      personal: p,
+      candidate: c,
+      summary: s,
+      layout: l,
+    });
+    if (errors.length > 0) {
+      errors.forEach((msg) => toast(msg, "error"));
+      return;
+    }
     setSaving(true);
     try {
       await commitCurrent();
@@ -1207,20 +1865,22 @@ function App() {
 
   function badge(t) {
     const counts = {
-      education:    candidate.education.length,
+      education: candidate.education.length,
       certificates: candidate.certificates.length,
-      skills:       candidate.skills.length,
-      experience:   candidate.experience.length,
-      projects:     candidate.projects.length,
-      summary:      summary.topics.length,
+      skills: candidate.skills.length,
+      experience: candidate.experience.length,
+      projects: candidate.projects.length,
+      summary: summary.topics.length,
     };
     const n = counts[t];
     return n ? <span className="tab-badge">{n}</span> : null;
   }
 
   const tabEnabled = (t) =>
-    t === "personal" || t === "upload" ||
-    validateTab("personal", { personal, candidate, summary, layout }).length === 0;
+    t === "personal" ||
+    t === "upload" ||
+    validateTab("personal", { personal, candidate, summary, layout }).length ===
+      0;
 
   // ── Section rendering ────────────────────────────────────────────────────────
   // Each section receives only its own slice of candidate state.
@@ -1228,14 +1888,21 @@ function App() {
   // for API calls — no section component needs to know about the others.
 
   function renderSection() {
-    const makeCandChange = (key) => (slice) => setCandidate(c => ({ ...c, [key]: slice }));
-    const makeCandSave   = (key) => (slice) =>
-      saveCandidateData({ ...candidate, [key]: slice }, false)
-        .catch(e => toast("Save failed: " + e.message, "error"));
+    const makeCandChange = (key) => (slice) =>
+      setCandidate((c) => ({ ...c, [key]: slice }));
+    const makeCandSave = (key) => (slice) =>
+      saveCandidateData({ ...candidate, [key]: slice }, false).catch((e) =>
+        toast("Save failed: " + e.message, "error"),
+      );
 
     switch (tab) {
       case "upload":
-        return <UploadResumeSection hasExistingProfile={hasExistingProfile} onUploadComplete={onUploadComplete} />;
+        return (
+          <UploadResumeSection
+            hasExistingProfile={hasExistingProfile}
+            onUploadComplete={onUploadComplete}
+          />
+        );
 
       case "personal":
         return (
@@ -1245,10 +1912,20 @@ function App() {
             editing={personalEditing}
             onEdit={() => setPersonalEditing(true)}
             onDone={() => {
-              const errors = validateTab("personal", { personal, candidate, summary, layout });
-              if (errors.length > 0) { errors.forEach(msg => toast(msg, "error")); return; }
+              const errors = validateTab("personal", {
+                personal,
+                candidate,
+                summary,
+                layout,
+              });
+              if (errors.length > 0) {
+                errors.forEach((msg) => toast(msg, "error"));
+                return;
+              }
               setPersonalEditing(false);
-              savePersonalData(personal, false).catch(e => toast("Save failed: " + e.message, "error"));
+              savePersonalData(personal, false).catch((e) =>
+                toast("Save failed: " + e.message, "error"),
+              );
             }}
           />
         );
@@ -1257,33 +1934,69 @@ function App() {
         return (
           <ProfileSection
             data={candidate.profile}
-            onChange={profile => setCandidate(c => ({ ...c, profile }))}
+            onChange={(profile) => setCandidate((c) => ({ ...c, profile }))}
             editing={profileEditing}
             onEdit={() => setProfileEditing(true)}
             onDone={() => {
               setProfileEditing(false);
-              saveCandidateData(candidate, false).catch(e => toast("Save failed: " + e.message, "error"));
+              saveCandidateData(candidate, false).catch((e) =>
+                toast("Save failed: " + e.message, "error"),
+              );
             }}
           />
         );
 
       case "education":
-        return <EducationSection data={candidate.education}    onChange={makeCandChange("education")}    onSave={makeCandSave("education")} />;
+        return (
+          <EducationSection
+            data={candidate.education}
+            onChange={makeCandChange("education")}
+            onSave={makeCandSave("education")}
+          />
+        );
       case "experience":
-        return <ExpSection       data={candidate.experience}   onChange={makeCandChange("experience")}   onSave={makeCandSave("experience")} />;
+        return (
+          <ExpSection
+            data={candidate.experience}
+            onChange={makeCandChange("experience")}
+            onSave={makeCandSave("experience")}
+          />
+        );
       case "projects":
-        return <ProjectsSection  data={candidate.projects}     onChange={makeCandChange("projects")}     onSave={makeCandSave("projects")} />;
+        return (
+          <ProjectsSection
+            data={candidate.projects}
+            onChange={makeCandChange("projects")}
+            onSave={makeCandSave("projects")}
+          />
+        );
       case "skills":
-        return <SkillsSection    data={candidate.skills}       onChange={makeCandChange("skills")}       onSave={makeCandSave("skills")} />;
+        return (
+          <SkillsSection
+            data={candidate.skills}
+            onChange={makeCandChange("skills")}
+            onSave={makeCandSave("skills")}
+          />
+        );
       case "certificates":
-        return <CertSection      data={candidate.certificates} onChange={makeCandChange("certificates")} onSave={makeCandSave("certificates")} />;
+        return (
+          <CertSection
+            data={candidate.certificates}
+            onChange={makeCandChange("certificates")}
+            onSave={makeCandSave("certificates")}
+          />
+        );
 
       case "summary":
         return (
           <SummarySection
             data={summary.topics}
-            onChange={topics => setSummary({ topics })}
-            onSave={topics => saveSummaryData({ topics }, false).catch(e => toast("Save failed: " + e.message, "error"))}
+            onChange={(topics) => setSummary({ topics })}
+            onSave={(topics) =>
+              saveSummaryData({ topics }, false).catch((e) =>
+                toast("Save failed: " + e.message, "error"),
+              )
+            }
           />
         );
 
@@ -1296,29 +2009,38 @@ function App() {
 
   const tabIdx = TAB_ORDER.indexOf(tab);
   const isFirst = tabIdx === 0;
-  const isLast  = tabIdx === TAB_ORDER.length - 1;
+  const isLast = tabIdx === TAB_ORDER.length - 1;
 
   return (
     <>
       <header>
         <span className="header-title">job-application-assistant</span>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button className="btn btn-sm" onClick={async () => { await commitCurrent(); window.location.href = "/"; }}>
+          <button
+            className="btn btn-sm"
+            onClick={async () => {
+              await commitCurrent();
+              window.location.href = "/";
+            }}
+          >
             &larr; Back to App
           </button>
-          <button className="btn btn-sm" onClick={() => signOut()}>Sign Out</button>
+          <button className="btn btn-sm" onClick={() => signOut()}>
+            Sign Out
+          </button>
         </div>
       </header>
 
       <div className="tab-bar">
-        {TAB_ORDER.map(t => (
+        {TAB_ORDER.map((t) => (
           <button
             key={t}
             className={"tab" + (tab === t ? " active" : "")}
             onClick={() => switchTab(t)}
             disabled={saving || !tabEnabled(t)}
           >
-            {TAB_LABELS[t]}{badge(t)}
+            {TAB_LABELS[t]}
+            {badge(t)}
           </button>
         ))}
         <ProgressBar lines={lineCount.lines} minLines={lineCount.min_lines} />
@@ -1327,14 +2049,28 @@ function App() {
       <main className="profile-main">
         <div className="profile-nav-bar">
           {!isFirst && (
-            <button className="btn btn-sm" onClick={goPrev} disabled={saving || loading}>&larr; Prev</button>
+            <button
+              className="btn btn-sm"
+              onClick={goPrev}
+              disabled={saving || loading}
+            >
+              &larr; Prev
+            </button>
           )}
-          <button className="btn btn-sm btn-primary" onClick={goNext} disabled={saving || loading}>
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={goNext}
+            disabled={saving || loading}
+          >
             {isLast ? "Finish" : "Next \u2192"}
           </button>
         </div>
 
-        {loading ? <div className="empty-state">Loading profile...</div> : renderSection()}
+        {loading ? (
+          <div className="empty-state">Loading profile...</div>
+        ) : (
+          renderSection()
+        )}
       </main>
     </>
   );
