@@ -88,7 +88,7 @@ class LatexGenerator:
     def _e(self, text: str) -> str:
         return self._ESCAPE_PATTERN.sub(lambda m: self._REPLACEMENTS[m.group()], text)
 
-    def _github_link_tex(self, link: str, label: str) -> str:
+    def _link_tex(self, link: str, label: str) -> str:
         return r"\href{" + link + r"}{\large{\underline{" + self._e(label) + r"}}}"
 
     def convert_to_latex(
@@ -224,18 +224,18 @@ class LatexGenerator:
             r"\resumeSubHeadingListStart",
         ]
         for project, bullets in blocks:
-            github_suffix = ""
-            if project.github_links:
+            link_suffix = ""
+            if project.links:
                 parts = [
-                    self._github_link_tex(link.url, link.name)
-                    for link in project.github_links
+                    self._link_tex(link.url, link.name)
+                    for link in project.links
                 ]
-                github_suffix = " $|$ " + " ".join(parts)
+                link_suffix = " $|$ " + " ".join(parts)
 
             title = r"\textbf{\large{" + self._e(project.name) + "}}"
             lines.append(
                 r"      \ResumeProjectHeadingRow{"
-                + title + github_suffix + "}{"
+                + title + link_suffix + "}{"
                 + project.date + "}"
             )
             lines.append(r"          \resumeItemListStart")

@@ -107,7 +107,7 @@ function fromCandidate(data = {}) {
       name: p.name || "",
       _id: crypto.randomUUID(),
       date: toMonthInput(p.date),
-      github_links: (p.github_links || []).map((l) => ({
+      links: (p.links || []).map((l) => ({
         _id: crypto.randomUUID(),
         name: l.name || "",
         url: l.url || "",
@@ -147,10 +147,10 @@ function toCandidate(state) {
       }),
     ),
     projects: state.projects.map(
-      ({ _id, date, github_links, bullet_points, ...p }) => ({
+      ({ _id, date, links, bullet_points, ...p }) => ({
         ...p,
         date: fromMonthInput(date),
-        github_links: github_links.map(({ _id, ...l }) => l),
+        links: links.map(({ _id, ...l }) => l),
         bullet_points: bullet_points.map(({ _id, text }) => ({ text })),
       }),
     ),
@@ -830,7 +830,7 @@ function ProjectsSection({ data, onChange, onSave }) {
     const newId = crypto.randomUUID();
     onChange([
       ...data,
-      { _id: newId, name: "", date: "", github_links: [], bullet_points: [] },
+      { _id: newId, name: "", date: "", links: [], bullet_points: [] },
     ]);
     setEditingId(newId);
   };
@@ -851,7 +851,7 @@ function ProjectsSection({ data, onChange, onSave }) {
         p._id === projId
           ? {
               ...p,
-              github_links: p.github_links.map((l) =>
+              links: p.links.map((l) =>
                 l._id === lid ? { ...l, [field]: val } : l,
               ),
             }
@@ -865,8 +865,8 @@ function ProjectsSection({ data, onChange, onSave }) {
         p._id === projId
           ? {
               ...p,
-              github_links: [
-                ...p.github_links,
+              links: [
+                ...p.links,
                 { _id: crypto.randomUUID(), name: "", url: "" },
               ],
             }
@@ -878,7 +878,7 @@ function ProjectsSection({ data, onChange, onSave }) {
     onChange(
       data.map((p) =>
         p._id === projId
-          ? { ...p, github_links: p.github_links.filter((l) => l._id !== lid) }
+          ? { ...p, links: p.links.filter((l) => l._id !== lid) }
           : p,
       ),
     );
@@ -933,7 +933,7 @@ function ProjectsSection({ data, onChange, onSave }) {
             hint="Optional — label and URL for each repository"
           >
             <div className="repo-rows">
-              {proj.github_links.map((link) => (
+              {proj.links.map((link) => (
                 <div key={link._id} className="repo-row">
                   <input
                     type="text"

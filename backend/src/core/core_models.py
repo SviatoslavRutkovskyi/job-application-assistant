@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
-from models import GithubLink, ResumeSectionId
+from models import Link, ResumeSectionId
 
 
 # --- Annotated candidate (built in memory; ids + line costs added at runtime) ---
@@ -32,7 +32,7 @@ class AnnotatedProject(BaseModel):
     id: int
     name: str
     date: str
-    github_links: list[GithubLink] = Field(default_factory=list)
+    links: list[Link] = Field(default_factory=list)
     line_cost: float
     bullet_points: list[AnnotatedBullet]
 

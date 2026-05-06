@@ -36,7 +36,7 @@ class PersonalSummary(BaseModel):
 
 # --- Candidate career content (source JSON, no ids or line costs) ---
 
-class GithubLink(BaseModel):
+class Link(BaseModel):
     name: str
     url: str
 
@@ -53,7 +53,7 @@ class SkillCategory(BaseModel):
 class Project(BaseModel):
     name: str
     date: str
-    github_links: list[GithubLink] = Field(default_factory=list)
+    links: list[Link] = Field(default_factory=list)
     bullet_points: list[TextItem]
 
 

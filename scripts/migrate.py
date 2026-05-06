@@ -42,7 +42,10 @@ _BACKUP_FILE = _TARGET_FILE.replace(".json", "_backup.json")
 # Returns the transformed dict. Raise an exception to abort this user's migration.
 
 def transform(data: dict) -> dict:
-    """No active migration."""
+    """Rename github_links to links on every project entry."""
+    for project in data.get("projects", []):
+        if "github_links" in project:
+            project["links"] = project.pop("github_links")
     return data
 
 
