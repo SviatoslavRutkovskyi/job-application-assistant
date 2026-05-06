@@ -928,10 +928,7 @@ function ProjectsSection({ data, onChange, onSave }) {
               />
             </Fg>
           </div>
-          <Fg
-            label="GitHub Links"
-            hint="Optional — label and URL for each repository"
-          >
+          <Fg label="Links" hint="Optional — label and URL for each link">
             <div className="repo-rows">
               {proj.links.map((link) => (
                 <div key={link._id} className="repo-row">
@@ -949,7 +946,7 @@ function ProjectsSection({ data, onChange, onSave }) {
                     onChange={(e) =>
                       updateLink(proj._id, link._id, "url", e.target.value)
                     }
-                    placeholder="https://github.com/..."
+                    placeholder="https://..."
                   />
                   <button
                     className="btn btn-sm btn-icon"
